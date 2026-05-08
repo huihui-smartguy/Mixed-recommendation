@@ -15,6 +15,142 @@
 - Ant Design v5 + ECharts (`echarts-for-react`)
 - react-markdown + remark-gfm
 
+## 环境准备
+
+### 前置要求
+
+| 工具 | 推荐版本 | 用途 |
+| --- | --- | --- |
+| Node.js | ≥ 18 LTS（建议 20 或 22） | Vite / TypeScript / 测试运行时 |
+| pnpm | ≥ 9 | 包管理；磁盘占用与冷装速度优于 npm |
+| Git | 任意 | 拉代码 |
+
+快速检查：
+
+```bash
+node -v   # 期望 v18.x / v20.x / v22.x
+pnpm -v   # 期望 9.x 或 10.x
+```
+
+### 服务器上缺少 pnpm？按场景选一种
+
+#### A · 已有 Node.js 18+ ：用 Corepack（**最推荐**）
+
+Corepack 是 Node.js 16.10+ 自带的包管理调度器，无需额外网络下载二进制。
+
+```bash
+corepack enable                     # 一次性开启（可能需要 sudo）
+corepack prepare pnpm@latest --activate
+pnpm -v                             # 验证
+```
+
+> Linux 上若提示 `corepack: command not found`，说明 Node 是从老版 apt 源装的；走下面方案 B 升级 Node 即可同时获得 Corepack。
+
+#### B · 没有 Node.js / 版本太低：先装 Node 再走 Corepack
+
+**推荐：nvm（用户态、不污染系统）**
+
+```bash
+# Linux / macOS 通用
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+# 或 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc      # 或 ~/.zshrc
+
+nvm install 20        # 装 Node 20 LTS
+nvm use 20
+corepack enable && corepack prepare pnpm@latest --activate
+```
+
+**Linux 系统包管理（需要 root）**
+
+```bash
+# Debian / Ubuntu — 用 NodeSource 官方源
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# RHEL / CentOS / Rocky / Alma
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo -E bash -
+sudo dnf install -y nodejs   # CentOS 7 用 yum
+
+# Alpine
+sudo apk add nodejs npm
+
+corepack enable && corepack prepare pnpm@latest --activate
+```
+
+**macOS — Homebrew 一键**
+
+```bash
+brew install node@20
+brew link --overwrite node@20         # 仅在并存多版本时需要
+corepack enable && corepack prepare pnpm@latest --activate
+# 或者直接：brew install pnpm
+```
+
+#### C · 不想动 Node：直接安装独立 pnpm
+
+```bash
+# 官方安装脚本（Linux / macOS 通用）
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+# 安装完成后按提示 source ~/.bashrc 或 ~/.zshrc，使 pnpm 进入 PATH
+
+# 或通过 npm 安装（需要先有 Node 与 npm）
+npm install -g pnpm
+
+# macOS Homebrew
+brew install pnpm
+```
+
+#### D · 受限内网 / 离线服务器
+
+如果服务器不能直连公网：
+
+1. **走公司内网镜像**：先把 `~/.npmrc` 指向内部 registry：
+   ```bash
+   pnpm config set registry https://npm.your-corp.com/
+   # 或社区镜像：https://registry.npmmirror.com/
+   ```
+2. **完全离线**：在能联网的同架构机器上 `pnpm fetch` 把依赖拉成 store，再用 `pnpm install --offline` 安装。或者打成 Docker 镜像分发：
+   ```dockerfile
+   FROM node:20-alpine
+   RUN corepack enable && corepack prepare pnpm@latest --activate
+   WORKDIR /app
+   COPY package.json pnpm-lock.yaml ./
+   RUN pnpm install --frozen-lockfile
+   COPY . .
+   RUN pnpm build
+   ```
+3. **免管理员**：把 pnpm 单文件二进制放到 `~/bin`：
+   ```bash
+   mkdir -p ~/bin
+   curl -fL -o ~/bin/pnpm https://github.com/pnpm/pnpm/releases/latest/download/pnpm-linuxstatic-x64
+   chmod +x ~/bin/pnpm
+   export PATH="$HOME/bin:$PATH"   # 加到 ~/.bashrc 持久化
+   ```
+   macOS 对应 release 文件：`pnpm-macos-x64` / `pnpm-macos-arm64`。
+
+### 实在不想用 pnpm？
+
+`package.json` 没有 pnpm-only 字段，npm / yarn 都能跑。仅注意：
+
+- 若改用 npm，请删除 `pnpm-lock.yaml` 并提交 `package-lock.json`；
+- 若改用 yarn 4+，先 `corepack prepare yarn@stable --activate`。
+
+但 CI 与 lockfile 管理建议保持 pnpm 一致。
+
+### 常见问题
+
+| 现象 | 处理 |
+| --- | --- |
+| `corepack: command not found` | Node 版本低于 16.10；按方案 B 升级 |
+| `EACCES: permission denied` | 不要用 sudo 装 npm 全局包；走 nvm 或 `~/bin` 方案 |
+| `Unsupported engine`，要求 Node 18+ | `nvm install 20 && nvm use 20` |
+| 安装慢 / 卡在 fetch | 切镜像：`pnpm config set registry https://registry.npmmirror.com/` |
+| `ERR_PNPM_FETCH_404` 私有包 | 检查 `.npmrc` 是否漏配私有 registry 或 token |
+| Apple Silicon 装 esbuild 失败 | 升级 pnpm ≥ 9，或 `arch -arm64 pnpm install` |
+
+---
+
 ## 启动
 
 ```bash
