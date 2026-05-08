@@ -19,101 +19,111 @@
 
 ### 前置要求
 
-| 工具 | 推荐版本 | 用途 |
-| --- | --- | --- |
-| Node.js | ≥ 18 LTS（建议 20 或 22） | Vite / TypeScript / 测试运行时 |
-| pnpm | ≥ 9 | 包管理；磁盘占用与冷装速度优于 npm |
-| Git | 任意 | 拉代码 |
+| 工具 | 推荐版本 | 实测验证版本 | 用途 |
+| --- | --- | --- | --- |
+| Node.js | ≥ 18.18 LTS（建议 20 或 22） | 22.22 | Vite / TypeScript / 测试运行时 |
+| pnpm | **10.x（≤ 10.x，不要 11.x）** | **10.13.1** | 包管理 |
+| Git | 任意 | — | 拉代码 |
 
-快速检查：
+> ⚠ **不要用 pnpm 11.x**。pnpm 11 强制要求 Node ≥ 22.13；多数 macOS 开发机仍在 Node 20，会触发 `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite`。本仓库已通过 `package.json` 的 `packageManager` 字段把 pnpm 钉死在 10.13.1。
 
-```bash
-node -v   # 期望 v18.x / v20.x / v22.x
-pnpm -v   # 期望 9.x 或 10.x
-```
-
-### 服务器上缺少 pnpm？按场景选一种
-
-#### A · 已有 Node.js 18+ ：用 Corepack（**最推荐**）
-
-Corepack 是 Node.js 16.10+ 自带的包管理调度器，无需额外网络下载二进制。
+快速自检：
 
 ```bash
-corepack enable                     # 一次性开启（可能需要 sudo）
-corepack prepare pnpm@latest --activate
-pnpm -v                             # 验证
+node -v   # 期望 v18.18+/v20.x/v22.x
+pnpm -v   # 期望 10.x；若打印 11.x 请按下方"排错"修复
 ```
 
-> Linux 上若提示 `corepack: command not found`，说明 Node 是从老版 apt 源装的；走下面方案 B 升级 Node 即可同时获得 Corepack。
+### 服务器/本机缺少 pnpm？按场景选一种
+
+#### A · 已有 Node.js 18+：用 Corepack（**最推荐**）
+
+Corepack 是 Node.js 16.10+ 自带的包管理调度器，无需额外网络下载二进制。**进到本仓库目录后，corepack 会自动读取 `package.json` 的 `packageManager: "pnpm@10.13.1"` 字段，下载并切换到该版本**——你不需要手动 prepare。
+
+```bash
+corepack enable          # 一次性开启（macOS / Linux 不一定需要 sudo）
+cd Mixed-recommendation
+pnpm -v                  # 首次运行会自动拉 pnpm@10.13.1，再次运行就快了
+```
+
+如果你的机器上 corepack 老版本不识别 `packageManager` 字段（少见），手动 pin 一次：
+
+```bash
+corepack prepare pnpm@10.13.1 --activate
+```
+
+> 不要写成 `pnpm@latest`——它会被解析成最新主版本，今天可能就是 11.x。
 
 #### B · 没有 Node.js / 版本太低：先装 Node 再走 Corepack
 
-**推荐：nvm（用户态、不污染系统）**
+**推荐 · nvm（用户态、不污染系统、Linux/macOS 通用）**
 
 ```bash
-# Linux / macOS 通用
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 # 或 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc      # 或 ~/.zshrc
+source ~/.zshrc          # macOS 默认 zsh；bash 用户改 ~/.bashrc
 
-nvm install 20        # 装 Node 20 LTS
+nvm install 20           # 装 Node 20 LTS（与 pnpm 10.x 完全兼容）
 nvm use 20
-corepack enable && corepack prepare pnpm@latest --activate
+corepack enable && corepack prepare pnpm@10.13.1 --activate
 ```
 
-**Linux 系统包管理（需要 root）**
+**macOS · Homebrew**
 
 ```bash
-# Debian / Ubuntu — 用 NodeSource 官方源
+# 方案 1（推荐）：brew + corepack 走 packageManager 字段
+brew install node@20            # 或 node@22
+corepack enable
+cd Mixed-recommendation && pnpm -v   # 触发自动拉取 pnpm@10.13.1
+
+# 方案 2：直接装 pnpm，绕过 corepack
+brew install pnpm@10            # 注意指定 @10，避免被 brew 升到 11.x
+```
+
+> macOS 上同时存在多个 Node（system / brew / nvm）时，请用 `which node` 确认指向；优先 nvm 管理。
+
+**Linux · 系统包管理（需要 root）**
+
+```bash
+# Debian / Ubuntu — NodeSource 官方源
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # RHEL / CentOS / Rocky / Alma
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo -E bash -
-sudo dnf install -y nodejs   # CentOS 7 用 yum
+sudo dnf install -y nodejs    # CentOS 7 用 yum
 
 # Alpine
 sudo apk add nodejs npm
 
-corepack enable && corepack prepare pnpm@latest --activate
-```
-
-**macOS — Homebrew 一键**
-
-```bash
-brew install node@20
-brew link --overwrite node@20         # 仅在并存多版本时需要
-corepack enable && corepack prepare pnpm@latest --activate
-# 或者直接：brew install pnpm
+corepack enable && corepack prepare pnpm@10.13.1 --activate
 ```
 
 #### C · 不想动 Node：直接安装独立 pnpm
 
 ```bash
-# 官方安装脚本（Linux / macOS 通用）
-curl -fsSL https://get.pnpm.io/install.sh | sh -
-# 安装完成后按提示 source ~/.bashrc 或 ~/.zshrc，使 pnpm 进入 PATH
+# 官方安装脚本（Linux / macOS 通用，会装 pnpm 最新版 — 注意可能是 11.x）
+curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=10.13.1 sh -
+# 安装完成后按提示 source ~/.zshrc 或 ~/.bashrc
 
 # 或通过 npm 安装（需要先有 Node 与 npm）
-npm install -g pnpm
+npm install -g pnpm@10
 
 # macOS Homebrew
-brew install pnpm
+brew install pnpm@10
 ```
 
 #### D · 受限内网 / 离线服务器
 
-如果服务器不能直连公网：
-
-1. **走公司内网镜像**：先把 `~/.npmrc` 指向内部 registry：
+1. **走公司内网镜像**：
    ```bash
    pnpm config set registry https://npm.your-corp.com/
    # 或社区镜像：https://registry.npmmirror.com/
    ```
-2. **完全离线**：在能联网的同架构机器上 `pnpm fetch` 把依赖拉成 store，再用 `pnpm install --offline` 安装。或者打成 Docker 镜像分发：
+2. **完全离线**：在能联网的同架构机器上 `pnpm fetch` 把依赖拉成 store，再用 `pnpm install --offline`；或者打成 Docker 镜像分发：
    ```dockerfile
    FROM node:20-alpine
-   RUN corepack enable && corepack prepare pnpm@latest --activate
+   RUN corepack enable && corepack prepare pnpm@10.13.1 --activate
    WORKDIR /app
    COPY package.json pnpm-lock.yaml ./
    RUN pnpm install --frozen-lockfile
@@ -123,11 +133,13 @@ brew install pnpm
 3. **免管理员**：把 pnpm 单文件二进制放到 `~/bin`：
    ```bash
    mkdir -p ~/bin
-   curl -fL -o ~/bin/pnpm https://github.com/pnpm/pnpm/releases/latest/download/pnpm-linuxstatic-x64
+   # Linux x64
+   curl -fL -o ~/bin/pnpm \
+     https://github.com/pnpm/pnpm/releases/download/v10.13.1/pnpm-linuxstatic-x64
+   # macOS Apple Silicon → pnpm-macos-arm64；Intel → pnpm-macos-x64
    chmod +x ~/bin/pnpm
-   export PATH="$HOME/bin:$PATH"   # 加到 ~/.bashrc 持久化
+   export PATH="$HOME/bin:$PATH"   # 加到 ~/.zshrc / ~/.bashrc 持久化
    ```
-   macOS 对应 release 文件：`pnpm-macos-x64` / `pnpm-macos-arm64`。
 
 ### 实在不想用 pnpm？
 
@@ -138,16 +150,51 @@ brew install pnpm
 
 但 CI 与 lockfile 管理建议保持 pnpm 一致。
 
-### 常见问题
+### 排错
+
+#### 1) macOS 报 `ERR_UNKNOWN_BUILTIN_MODULE: No such built-in module: node:sqlite`
+
+完整错误特征：
+
+```
+warn: This version of pnpm requires at least Node.js v22.13
+warn: The current version of Node.js is v20.x.x
+Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite
+    at .../corepack/v1/pnpm/11.0.8/dist/pnpm.mjs ...
+```
+
+**根因**：以前执行过 `corepack prepare pnpm@latest --activate`，corepack 把 pnpm 11.0.8 写入 `~/.cache/node/corepack`；而 pnpm 11 的 store 索引模块依赖 Node 22.13+ 才有的 `node:sqlite` 内置模块，你本机 Node 20 自然没有。
+
+**修复（任选一个）：**
+
+```bash
+# 修复 1（推荐，不需要升级 Node）：把 pnpm 降到 10.x
+corepack prepare pnpm@10.13.1 --activate
+pnpm -v   # 应输出 10.13.1
+
+# 修复 2：升级 Node 到 22 LTS（pnpm 11 才能跑）
+nvm install 22 && nvm use 22
+# 然后 packageManager 字段会自动起作用，无需手动指定 pnpm 版本
+
+# 修复 3：清理 corepack 缓存，让 packageManager 字段托管
+rm -rf ~/.cache/node/corepack
+corepack enable
+cd Mixed-recommendation && pnpm install   # 自动按 packageManager 字段拉取
+```
+
+进到本仓库 `cd Mixed-recommendation` 后只要 corepack 正确启用，`packageManager: "pnpm@10.13.1"` 字段会替你做兜底。
+
+#### 2) 其他常见问题
 
 | 现象 | 处理 |
 | --- | --- |
 | `corepack: command not found` | Node 版本低于 16.10；按方案 B 升级 |
-| `EACCES: permission denied` | 不要用 sudo 装 npm 全局包；走 nvm 或 `~/bin` 方案 |
-| `Unsupported engine`，要求 Node 18+ | `nvm install 20 && nvm use 20` |
+| `Unsupported engine ... required: { node: '>=18.18' }` | `nvm install 20 && nvm use 20` |
+| `EACCES: permission denied` 装全局 npm 包 | 不要用 sudo；走 nvm 或方案 D 的 `~/bin` |
 | 安装慢 / 卡在 fetch | 切镜像：`pnpm config set registry https://registry.npmmirror.com/` |
 | `ERR_PNPM_FETCH_404` 私有包 | 检查 `.npmrc` 是否漏配私有 registry 或 token |
-| Apple Silicon 装 esbuild 失败 | 升级 pnpm ≥ 9，或 `arch -arm64 pnpm install` |
+| Apple Silicon 装 esbuild 失败 | 升级 pnpm ≥ 10，或 `arch -arm64 pnpm install` |
+| 修改 `packageManager` 后想强制更新 | `corepack prepare --activate` 不带版本号会读 `package.json` |
 
 ---
 
