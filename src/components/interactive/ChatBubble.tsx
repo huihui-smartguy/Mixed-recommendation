@@ -1,3 +1,5 @@
+import { Tag } from 'antd';
+import { BulbOutlined } from '@ant-design/icons';
 import type { ChatMessage, Product } from '@/types';
 import FundCard from './FundCard';
 import ThinkingAccordion from './ThinkingAccordion';
@@ -6,9 +8,16 @@ interface Props {
   message: ChatMessage;
   selectedCompare: Product[];
   onToggleCompare: (p: Product) => void;
+  /** 智能追问被点击时回填到输入框 */
+  onFollowupPick?: (suggestion: string) => void;
 }
 
-export default function ChatBubble({ message, selectedCompare, onToggleCompare }: Props) {
+export default function ChatBubble({
+  message,
+  selectedCompare,
+  onToggleCompare,
+  onFollowupPick
+}: Props) {
   if (message.role === 'user') {
     const text = message.chunks.map((c) => c.content ?? '').join('');
     return <div className="bubble user">{text}</div>;
@@ -51,6 +60,44 @@ export default function ChatBubble({ message, selectedCompare, onToggleCompare }
                   selected={selected}
                   onToggle={onToggleCompare}
                 />
+              );
+            }
+            if (c.type === 'trailing_rec' && c.products && c.products.length > 0) {
+              return (
+                <div key={c.id} className="trailing-rec">
+                  <div className="trailing-rec-title">{c.title ?? '尾随推荐'}</div>
+                  {c.products.map((p) => {
+                    const selected = selectedCompare.some((x) => x.code === p.code);
+                    return (
+                      <FundCard
+                        key={p.code}
+                        product={p}
+                        selected={selected}
+                        onToggle={onToggleCompare}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            }
+            if (c.type === 'followup' && c.suggestions && c.suggestions.length > 0) {
+              return (
+                <div key={c.id} className="followup">
+                  <div className="followup-title">
+                    <BulbOutlined /> 您可能想继续追问
+                  </div>
+                  <div className="followup-chips">
+                    {c.suggestions.map((s) => (
+                      <Tag.CheckableTag
+                        key={s}
+                        checked={false}
+                        onChange={() => onFollowupPick?.(s)}
+                      >
+                        {s}
+                      </Tag.CheckableTag>
+                    ))}
+                  </div>
+                </div>
               );
             }
             return null;

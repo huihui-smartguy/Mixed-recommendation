@@ -1,11 +1,18 @@
 # 智能资产配置工作台 · Mixed-Recommendation
 
-基于 [DesignDocuments.md](./DesignDocuments.md) 落地的双模推荐前端工作台 (V1.0)：
+基于 [DesignDocuments.md](./DesignDocuments.md) 落地的双模推荐前端工作台 (V1.1，暖色系)：
 
-- **生成式推荐**：异步长报告任务、Step-Loading、Markdown + ECharts + 表格混合渲染、PDF 导出 / 链接分享。
-- **交互式推荐**：Mock SSE 流式输出、Chain-of-Thought 折叠面板、动态产品微卡片、推荐方案对比抽屉。
-- **页面级 Keep-Alive**：双 Tab 始终挂载，切换时报告进度与对话上下文不丢失。
-- **合规红线**：水印背景、不可隐藏的免责条幅、违禁词本地拦截、PII 脱敏（手机号 / 身份证 / 卡号）。
+- **双运行模式**
+  - `pnpm dev` —— **生产模式**，对接真实 LLM 与 onerec；缺凭证时自动降级到脚本化 mock 数据
+  - `pnpm copy` —— **全 mock 模式**，本地完整虚拟后端，离线可用
+- **生成式推荐**：异步长报告任务、Step-Loading、Markdown + ECharts + 表格混合渲染、PDF 导出 / 链接分享
+  - 触发拆分为两张并列卡：**对话区**（自然语言意图） + **按钮区**（向导式表单）
+- **交互式推荐**：真实 SSE 流式输出（thinking / text / widget / followup / trailing_rec）
+  - 主 Tab 提供完整对话台 + 全局 **浮动机器人 "小颂"**（类 AI 涨乐 / 支付宝小助手）
+  - 气泡内可渲染 **尾随推荐**（额外的产品卡组）与 **智能追问**（点击直接回填输入框）
+- **页面级 Keep-Alive**：双 Tab 始终挂载，切换时报告进度与对话上下文不丢失
+- **合规红线**：水印背景、不可隐藏的免责条幅、违禁词本地拦截、PII 脱敏（手机号 / 身份证 / 卡号）
+- **暖色 UI**：橙红主色调 + 米色背景 + 渐变 Header，金融"红涨绿跌"语义色保持不动
 
 ## 技术栈
 
@@ -201,34 +208,93 @@ cd Mixed-recommendation && pnpm install   # 自动按 packageManager 字段拉�
 ## 启动
 
 ```bash
-pnpm install   # 或 npm install
-pnpm dev       # http://localhost:5173 — 内嵌 Mock 后端中间件（SSE + 任务轮询）
+pnpm install
+pnpm dev           # 生产模式：对接真实 LLM/onerec；缺凭证自动降级到脚本化用例
+pnpm copy          # 全 mock 模式：完全本地虚拟后端（离线可用）
 pnpm build
 pnpm typecheck
-pnpm test          # 运行 Vitest
-pnpm test:coverage # 含 80% 覆盖率门槛
+pnpm test          # 70 个 Vitest 用例
+pnpm test:coverage # ≥80% 行/语句/函数覆盖率门槛
 ```
+
+> Vite 启动时会打印当前模式横幅：
+>
+> - `[Workbench] WORKBENCH_MODE = production (pnpm dev)`
+> - `[Workbench] WORKBENCH_MODE = mock (pnpm copy)`
+
+### 配置真实 LLM 与 onerec（生产模式）
+
+复制示例文件再按需填写：
+
+```bash
+cp .env.example .env
+# .env 已被 .gitignore，不会进版本库
+```
+
+支持的环境变量（仅服务端可见，浏览器拿不到）：
+
+| 变量 | 说明 |
+| --- | --- |
+| `LLM_PROVIDER` | `anthropic`（默认）/ `openai-compatible` |
+| `LLM_BASE_URL` | API 端点；可指向 DeepSeek / Qwen / Moonshot / 智谱等兼容协议 |
+| `LLM_MODEL` | 模型名（默认 `claude-sonnet-4-6` 或 `gpt-4o-mini`） |
+| `LLM_API_KEY` | 密钥；缺失时降级为脚本化用例 |
+| `LLM_TEMPERATURE` / `LLM_MAX_TOKENS` | 生成参数 |
+| `ONEREC_BASE_URL` | onerec 推荐引擎地址；缺失时读 `mock-data/onerec/products.json` |
+| `DEFAULT_USER_ID` | 交互式对话默认拉取的客户画像 ID |
+
+**Prompt 模板** 已放开在 `src/llm/prompts/`，无需重启即可改文案：
+
+| 文件 | 用途 |
+| --- | --- |
+| `src/llm/prompts/system.ts` | 财富顾问系统人设 + SSE 输出协议 + 防幻觉硬约束 |
+| `src/llm/prompts/chat.ts` | 交互式对话 user prompt（注入 onerec 候选池） |
+| `src/llm/prompts/report.ts` | 生成式报告 user prompt + 默认大类资产权重 |
+
+### 调试用 Mock 数据文件
+
+| 文件 | 何时被使用 |
+| --- | --- |
+| `mock-data/onerec/products.json` | 生产模式且未配 `ONEREC_BASE_URL`，或调真实接口失败时回退 |
+| `mock-data/llm/chat-cases.json` | 生产模式且未配 `LLM_API_KEY`，按 prompt 关键词匹配 case 回放 |
+
+数据格式与字段说明都在 JSON 文件 `_comment` / `_schema` 里。修改文件后**首次请求**会重新读取（中间件做了缓存，重启 dev 进程即可清掉）。
 
 ## 目录结构
 
 ```
+mock-data/
+├─ onerec/products.json     onerec 调试数据（snake_case 原始字段）
+└─ llm/chat-cases.json      浮动机器人对话用例（含 followup / trailing_rec）
+
 src/
 ├─ components/
-│  ├─ layout/         GlobalHeader、KeepAlive
-│  ├─ generative/     ProfileWizard、StepLoading、ReportViewer、AllocationPieChart、BacktestLineChart
-│  └─ interactive/    ChatWorkspace、ChatBubble、ThinkingAccordion、FundCard、CompareDrawer、Sparkline
+│  ├─ layout/                GlobalHeader、KeepAlive
+│  ├─ generative/            ConversationTrigger、ButtonWizard（双触发拆分）、
+│  │                         ReportWorkspace、StepLoading、ReportViewer、
+│  │                         AllocationPieChart、BacktestLineChart
+│  ├─ interactive/           ChatWorkspace、ChatBubble、ThinkingAccordion、
+│  │                         FundCard、CompareDrawer、Sparkline
+│  └─ floating/              FloatingRobot（浮动机器人三态：closed/mini/open）
 ├─ services/
-│  ├─ api.ts          fetch + SSE 真实客户端（profiles / onerec / report 轮询 / chat 流）
-│  ├─ sseParser.ts    标准 text/event-stream 解析器（纯函数 + 流读取）
-│  ├─ onerecAdapter.ts onerec 防腐层：字段归一、数值兜底、sparkline 长度规整、产品代码守卫
-│  └─ mockData.ts     画像与候选池演示数据
+│  ├─ api.ts                 fetch + SSE 客户端（profiles / onerec / report / chat）
+│  ├─ sseParser.ts           标准 text/event-stream 解析器（纯函数 + 流读取）
+│  ├─ onerecAdapter.ts       onerec 防腐层
+│  └─ mockData.ts            演示用画像数据
 ├─ server/
-│  └─ devMockMiddleware.ts  Vite 插件：把 /api/v1/* 接成"真后端"（SSE + 任务化）
-├─ stores/            useReportStore.ts、useChatStore.ts
-├─ types/             领域模型与流式协议契约
-├─ utils/             compliance.ts（违禁词 / PII 脱敏 / 免责文案）, format.ts
-├─ __tests__/         Vitest 单测：sseParser/onerecAdapter/api/compliance/format/chatStore/reportStore
-└─ styles/global.css  含金融语义化色板（红涨绿跌）、安全区适配、骨架屏动画
+│  ├─ devMockMiddleware.ts   pnpm copy 的全 mock 后端
+│  └─ prodMiddleware.ts      pnpm dev 的生产后端：调真实 LLM/onerec，缺凭证降级
+├─ llm/
+│  ├─ client.ts              LLM 抽象客户端（Anthropic / OpenAI 兼容协议）
+│  └─ prompts/
+│     ├─ system.ts           系统人设 + SSE 协议
+│     ├─ chat.ts             交互式对话 prompt 构造器
+│     └─ report.ts           报告生成 prompt + 默认大类资产权重
+├─ stores/                   useReportStore.ts、useChatStore.ts
+├─ types/                    领域模型与流式协议契约（含新增 followup / trailing_rec）
+├─ utils/                    compliance.ts、format.ts
+├─ __tests__/                70 个 Vitest 用例
+└─ styles/global.css         暖色设计令牌（橙/红/米）+ 浮动机器人样式
 ```
 
 ## 测试与覆盖率

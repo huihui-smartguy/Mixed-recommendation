@@ -11,6 +11,10 @@ yarn-debug.log*
 yarn-error.log*
 tsconfig.tsbuildinfo
 coverage/
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

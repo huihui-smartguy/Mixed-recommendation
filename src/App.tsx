@@ -4,6 +4,7 @@ import GlobalHeader from './components/layout/GlobalHeader';
 import KeepAlive from './components/layout/KeepAlive';
 import ReportWorkspace from './components/generative/ReportWorkspace';
 import ChatWorkspace from './components/interactive/ChatWorkspace';
+import FloatingRobot from './components/floating/FloatingRobot';
 import { DISCLAIMER } from './utils/compliance';
 
 type TabKey = 'report' | 'chat';
@@ -25,7 +26,7 @@ export default function App() {
             { key: 'chat', label: '交互式推荐 · AI 动态助手' }
           ]}
         />
-        {/* 双 Tab 都常驻挂载，通过 display 控制显隐，实现页面级 Keep-Alive */}
+        {/* 双 Tab 都常驻挂载，display 控制显隐，实现页面级 Keep-Alive */}
         <KeepAlive active={tab === 'report'}>
           <ReportWorkspace />
         </KeepAlive>
@@ -40,6 +41,9 @@ export default function App() {
           </div>
         </footer>
       </main>
+
+      {/* 全局浮动机器人：常驻所有页签，与对话 store 共享上下文 */}
+      <FloatingRobot />
     </div>
   );
 }

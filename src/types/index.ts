@@ -63,12 +63,26 @@ export interface ReportTaskState {
 
 export type ChatRole = 'user' | 'assistant';
 
+export type ChatChunkType =
+  | 'thinking'
+  | 'text'
+  | 'widget'
+  | 'followup'
+  | 'trailing_rec';
+
 export interface ChatChunk {
   id: string;
-  type: 'thinking' | 'text' | 'widget';
+  type: ChatChunkType;
+  /** type === 'thinking' | 'text' 时使用 */
   content?: string;
+  /** type === 'widget' 时使用 */
   widgetName?: 'FundCard';
   data?: Product;
+  /** type === 'followup' 时使用 — 智能追问 chip */
+  suggestions?: string[];
+  /** type === 'trailing_rec' 时使用 — 尾随推荐组 */
+  title?: string;
+  products?: Product[];
 }
 
 export interface ChatMessage {

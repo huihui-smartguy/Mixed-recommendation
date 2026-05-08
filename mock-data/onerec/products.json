@@ -1,0 +1,191 @@
+{
+  "_comment": "onerec 推荐引擎模拟返回数据。字段命名采用真实生产环境常见的 snake_case 格式。前端 src/services/onerecAdapter.ts 中的 normalizeOnerecResponse 会做字段归一与脏值清洗。修改后 pnpm dev 会立即生效。",
+  "_schema": {
+    "userId": "客户 ID",
+    "items": "召回的产品列表",
+    "items[].product_code": "产品代码（必备字段，缺失则被丢弃）",
+    "items[].product_name": "产品名称（必备字段）",
+    "items[].type": "产品类型 / 资产大类",
+    "items[].net_value": "最新净值",
+    "items[].change_pct": "日涨跌幅 %",
+    "items[].return_1y": "近一年收益 %",
+    "items[].return_3y": "近三年收益 %",
+    "items[].max_drawdown": "最大回撤 % (负数)",
+    "items[].sharpe": "夏普比率",
+    "items[].sparkline": "近 N 期净值数组（前端 4-64 之间归一化）",
+    "items[].recommendation": "onerec 给出的推荐理由（可选）"
+  },
+  "datasets": {
+    "CUST-A": {
+      "userId": "CUST-A",
+      "items": [
+        {
+          "product_code": "003376",
+          "product_name": "汇添富中债3-5年政策金融债",
+          "type": "中长期纯债",
+          "net_value": "1.1428",
+          "change_pct": "0.04",
+          "return_1y": "4.7",
+          "return_3y": "14.9",
+          "max_drawdown": "-1.8",
+          "sharpe": "1.32",
+          "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
+          "recommendation": "提供组合压舱石作用，久期适中、违约风险低"
+        },
+        {
+          "product_code": "180202",
+          "product_name": "南方红利低波50ETF",
+          "type": "红利策略",
+          "net_value": "1.4218",
+          "change_pct": "0.36",
+          "return_1y": "9.8",
+          "return_3y": "22.7",
+          "max_drawdown": "-14.6",
+          "sharpe": "0.82",
+          "sparkline": [1.0, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08, 1.1, 1.12, 1.13, 1.15, 1.16],
+          "recommendation": "高股息+低波动，匹配稳健型客户现金流诉求"
+        },
+        {
+          "product_code": "518880",
+          "product_name": "华安黄金易ETF",
+          "type": "商品·黄金",
+          "net_value": "5.4123",
+          "change_pct": "0.58",
+          "return_1y": "18.2",
+          "return_3y": "42.5",
+          "max_drawdown": "-12.4",
+          "sharpe": "1.08",
+          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
+          "recommendation": "抗通胀与避险属性，与权益资产相关性较低"
+        },
+        {
+          "product_code": "000961",
+          "product_name": "天弘沪深300ETF联接A",
+          "type": "宽基指数",
+          "net_value": "1.6234",
+          "change_pct": "0.82",
+          "return_1y": "12.4",
+          "return_3y": "26.1",
+          "max_drawdown": "-18.2",
+          "sharpe": "0.74",
+          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
+          "recommendation": "锚定核心资产，估值分位低于近五年中位数"
+        }
+      ]
+    },
+    "CUST-B": {
+      "userId": "CUST-B",
+      "items": [
+        {
+          "product_code": "000961",
+          "product_name": "天弘沪深300ETF联接A",
+          "type": "宽基指数",
+          "net_value": "1.6234",
+          "change_pct": "0.82",
+          "return_1y": "12.4",
+          "return_3y": "26.1",
+          "max_drawdown": "-18.2",
+          "sharpe": "0.74",
+          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
+          "recommendation": "锚定核心资产，估值分位低于近五年中位数"
+        },
+        {
+          "product_code": "180202",
+          "product_name": "南方红利低波50ETF",
+          "type": "红利策略",
+          "net_value": "1.4218",
+          "change_pct": "0.36",
+          "return_1y": "9.8",
+          "return_3y": "22.7",
+          "max_drawdown": "-14.6",
+          "sharpe": "0.82",
+          "sparkline": [1.0, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08, 1.1, 1.12, 1.13, 1.15, 1.16],
+          "recommendation": "中报盈利改善，高股息提供安全垫"
+        },
+        {
+          "product_code": "003376",
+          "product_name": "汇添富中债3-5年政策金融债",
+          "type": "中长期纯债",
+          "net_value": "1.1428",
+          "change_pct": "0.04",
+          "return_1y": "4.7",
+          "return_3y": "14.9",
+          "max_drawdown": "-1.8",
+          "sharpe": "1.32",
+          "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
+          "recommendation": "防御端配置，对冲权益波动"
+        },
+        {
+          "product_code": "518880",
+          "product_name": "华安黄金易ETF",
+          "type": "商品·黄金",
+          "net_value": "5.4123",
+          "change_pct": "0.58",
+          "return_1y": "18.2",
+          "return_3y": "42.5",
+          "max_drawdown": "-12.4",
+          "sharpe": "1.08",
+          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
+          "recommendation": "全球央行购金潮 + 实际利率下行，长期看好"
+        }
+      ]
+    },
+    "CUST-C": {
+      "userId": "CUST-C",
+      "items": [
+        {
+          "product_code": "513100",
+          "product_name": "国泰纳斯达克100ETF",
+          "type": "QDII·海外权益",
+          "net_value": "4.5621",
+          "change_pct": "1.65",
+          "return_1y": "28.6",
+          "return_3y": "64.2",
+          "max_drawdown": "-33.1",
+          "sharpe": "0.96",
+          "sparkline": [1.0, 1.05, 1.12, 1.08, 1.18, 1.25, 1.32, 1.28, 1.4, 1.45, 1.5, 1.56],
+          "recommendation": "配置全球科技龙头，对冲单一市场系统性风险"
+        },
+        {
+          "product_code": "000961",
+          "product_name": "天弘沪深300ETF联接A",
+          "type": "宽基指数",
+          "net_value": "1.6234",
+          "change_pct": "0.82",
+          "return_1y": "12.4",
+          "return_3y": "26.1",
+          "max_drawdown": "-18.2",
+          "sharpe": "0.74",
+          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
+          "recommendation": "A 股核心仓位，盈利底部修复"
+        },
+        {
+          "product_code": "161725",
+          "product_name": "招商中证白酒指数(LOF)",
+          "type": "行业主题",
+          "net_value": "0.8421",
+          "change_pct": "-1.42",
+          "return_1y": "-8.1",
+          "return_3y": "-12.4",
+          "max_drawdown": "-42.5",
+          "sharpe": "-0.18",
+          "sparkline": [1.0, 0.96, 1.04, 0.92, 0.85, 0.88, 0.81, 0.78, 0.83, 0.79, 0.82, 0.84],
+          "recommendation": "估值已处于历史底部区间，适合左侧逢低分批"
+        },
+        {
+          "product_code": "518880",
+          "product_name": "华安黄金易ETF",
+          "type": "商品·黄金",
+          "net_value": "5.4123",
+          "change_pct": "0.58",
+          "return_1y": "18.2",
+          "return_3y": "42.5",
+          "max_drawdown": "-12.4",
+          "sharpe": "1.08",
+          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
+          "recommendation": "组合波动平滑器，建议常态 5-8%"
+        }
+      ]
+    }
+  }
+}

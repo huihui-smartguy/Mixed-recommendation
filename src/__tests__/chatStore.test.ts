@@ -19,6 +19,8 @@ let scriptedEvents: Array<
   | { type: 'thinking'; content: string }
   | { type: 'text'; content: string }
   | { type: 'widget'; widgetName: 'FundCard'; data: Product }
+  | { type: 'followup'; suggestions: string[] }
+  | { type: 'trailing_rec'; title?: string; products: Product[] }
 > = [];
 let chatStreamShouldThrow: Error | null = null;
 
@@ -26,13 +28,17 @@ vi.mock('@/services/api', () => ({
   chatStream: async function* () {
     if (chatStreamShouldThrow) throw chatStreamShouldThrow;
     for (const e of scriptedEvents) {
-      yield {
+      const chunk: ChatChunk = {
         id: 'x',
         type: e.type,
         content: 'content' in e ? e.content : undefined,
         widgetName: 'widgetName' in e ? e.widgetName : undefined,
-        data: 'data' in e ? e.data : undefined
-      } as ChatChunk;
+        data: 'data' in e ? e.data : undefined,
+        suggestions: 'suggestions' in e ? e.suggestions : undefined,
+        title: 'title' in e ? e.title : undefined,
+        products: 'products' in e ? e.products : undefined
+      };
+      yield chunk;
     }
   }
 }));
@@ -165,5 +171,32 @@ describe('useChatStore', () => {
     expect(s.messages).toHaveLength(1);
     expect(s.selectedCompare).toEqual([]);
     expect(s.bannedHits).toEqual([]);
+  });
+
+  it('appends followup chunks when LLM emits suggestions', async () => {
+    scriptedEvents = [
+      { type: 'text', content: '答复…' },
+      { type: 'followup', suggestions: ['追问1', '追问2'] }
+    ];
+    await useChatStore.getState().send('稳健配置怎么做');
+    const msgs = useChatStore.getState().messages;
+    const assistant = msgs[msgs.length - 1];
+    const followup = assistant.chunks.find((c) => c.type === 'followup');
+    expect(followup).toBeDefined();
+    expect(followup?.suggestions).toEqual(['追问1', '追问2']);
+  });
+
+  it('appends trailing_rec chunks when LLM emits a product group', async () => {
+    scriptedEvents = [
+      { type: 'text', content: '答复…' },
+      { type: 'trailing_rec', title: '您可能还感兴趣', products: [sampleProduct] }
+    ];
+    await useChatStore.getState().send('黄金还能买吗');
+    const msgs = useChatStore.getState().messages;
+    const assistant = msgs[msgs.length - 1];
+    const trailing = assistant.chunks.find((c) => c.type === 'trailing_rec');
+    expect(trailing).toBeDefined();
+    expect(trailing?.title).toBe('您可能还感兴趣');
+    expect(trailing?.products?.[0].code).toBe('000961');
   });
 });
