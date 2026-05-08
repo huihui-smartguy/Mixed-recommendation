@@ -116,6 +116,7 @@ export default function FloatingRobot() {
               <ChatBubble
                 key={m.id}
                 message={m}
+                viewMode="pc"
                 selectedCompare={selectedCompare}
                 onToggleCompare={toggleCompare}
                 onFollowupPick={(s) => submit(s)}
