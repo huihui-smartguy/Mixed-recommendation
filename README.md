@@ -240,8 +240,16 @@ cp .env.example .env
 | `LLM_MODEL` | 模型名（默认 `claude-sonnet-4-6` 或 `gpt-4o-mini`） |
 | `LLM_API_KEY` | 密钥；缺失时降级为脚本化用例 |
 | `LLM_TEMPERATURE` / `LLM_MAX_TOKENS` | 生成参数 |
-| `ONEREC_BASE_URL` | onerec 推荐引擎地址；缺失时读 `mock-data/onerec/products.json` |
+| `ONEREC_BASE_URL` | onerec sidecar 地址（默认 `http://127.0.0.1:8765`，详见 `backend/onerec_service/`）；缺失时读 `mock-data/onerec/products.json` |
+| `ONEREC_API_TOKEN` | 可选；与 sidecar 同名变量配套，开启 Bearer 鉴权 |
+| `ONEREC_TIMEOUT_MS` | 单次召回超时，默认 5000 |
 | `DEFAULT_USER_ID` | 交互式对话默认拉取的客户画像 ID |
+
+> **关于 Python onerec 接入**：onerec 框架本身是 Python 库，不能在 Node 进程里 `import`。
+> 项目里 `backend/onerec_service/` 提供了一个 FastAPI sidecar 骨架（Pydantic v2 + uvicorn），
+> 把 onerec 包成 `GET /products?userId=&topK=` 的 HTTP 接口。Node BFF 只通过该 URL 调用，
+> 业务逻辑（prompt 编排 / 合规 / SSE）依然全部留在 Node。详见
+> [`backend/onerec_service/README.md`](backend/onerec_service/README.md)。
 
 **Prompt 模板** 已放开在 `src/llm/prompts/`，无需重启即可改文案：
 

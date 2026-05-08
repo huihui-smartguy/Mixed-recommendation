@@ -80,25 +80,43 @@ async function loadOnerecMock(rootDir: string): Promise<Record<string, { items: 
 
 /* -------------------- onerec：先打真接口，失败回退 mock -------------------- */
 
-async function fetchOnerec(userId: string, rootDir: string): Promise<Product[]> {
+const ONEREC_DEFAULT_TIMEOUT_MS = 5000;
+const ONEREC_DEFAULT_TOP_K = 8;
+
+async function fetchOnerec(
+  userId: string,
+  rootDir: string,
+  topK: number = ONEREC_DEFAULT_TOP_K
+): Promise<Product[]> {
   const baseUrl = process.env.ONEREC_BASE_URL;
   if (baseUrl) {
+    const timeoutMs = Number(process.env.ONEREC_TIMEOUT_MS ?? ONEREC_DEFAULT_TIMEOUT_MS);
+    const token = process.env.ONEREC_API_TOKEN;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch(`${baseUrl}/products?userId=${encodeURIComponent(userId)}`);
+      const url = `${baseUrl.replace(/\/+$/, '')}/products?userId=${encodeURIComponent(userId)}&topK=${encodeURIComponent(String(topK))}`;
+      const res = await fetch(url, { headers, signal: ctrl.signal });
       if (res.ok) {
         const raw = await res.json();
         const items = Array.isArray(raw) ? raw : ((raw as { items?: unknown[] }).items ?? []);
         const products = normalizeOnerecResponse(items);
-        if (products.length > 0) return products;
+        if (products.length > 0) return products.slice(0, topK);
+      } else {
+        console.warn(`[prodMiddleware] onerec ${baseUrl} returned ${res.status}, fallback to mock`);
       }
-      console.warn(`[prodMiddleware] onerec ${baseUrl} returned ${res.status}, fallback to mock`);
     } catch (err) {
-      console.warn(`[prodMiddleware] onerec ${baseUrl} unreachable: ${(err as Error).message}, fallback to mock`);
+      const msg = (err as Error).message ?? String(err);
+      console.warn(`[prodMiddleware] onerec ${baseUrl} unreachable (${msg}), fallback to mock`);
+    } finally {
+      clearTimeout(timer);
     }
   }
   const datasets = await loadOnerecMock(rootDir);
   const items = datasets[userId]?.items ?? datasets['CUST-A']?.items ?? [];
-  return normalizeOnerecResponse(items);
+  return normalizeOnerecResponse(items).slice(0, topK);
 }
 
 /* -------------------- 共享：报告 payload 构造 -------------------- */
