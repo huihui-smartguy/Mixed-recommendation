@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Input, Select, Space, Tag, Tooltip, App } from 'antd';
 import { PlayCircleOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import { useReportStore } from '@/stores/useReportStore';
-import { fetchProfiles } from '@/services/mockApi';
+import { fetchProfiles } from '@/services/api';
 import type { UserProfile } from '@/types';
 import { checkBannedWords } from '@/utils/compliance';
 

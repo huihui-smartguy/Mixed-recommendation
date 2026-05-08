@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ReportStage, ReportTaskState, UserProfile } from '@/types';
-import { generateReportTask } from '@/services/mockApi';
+import { pollReportUntilDone, submitReport } from '@/services/api';
 
 interface ReportFormState {
   selectedProfileId?: string;
@@ -41,32 +41,34 @@ export const useReportStore = create<ReportStoreState>((set, get) => ({
   startGeneration: async (profile) => {
     get().abortRef?.abort();
     const ctrl = new AbortController();
+    const { form } = get();
     set({
       abortRef: ctrl,
-      task: {
-        stage: 'queued',
-        stageMessage: '排队中…',
-        progress: 5
-      }
+      task: { stage: 'queued', stageMessage: '排队中…', progress: 5 }
     });
     try {
-      await generateReportTask(
-        profile,
-        (e) => {
+      const { taskId } = await submitReport(profile.id, form.preferenceTags, form.intent, ctrl.signal);
+      set({ task: { ...get().task, taskId } });
+      await pollReportUntilDone(
+        taskId,
+        (s) => {
           set({
             task: {
-              taskId: get().task.taskId ?? `T-${Date.now().toString(36)}`,
-              stage: e.stage as ReportStage,
-              stageMessage: e.message,
-              progress: e.progress,
-              payload: e.payload ?? get().task.payload
+              taskId: s.taskId,
+              stage: s.stage as ReportStage,
+              stageMessage: s.message,
+              progress: s.progress,
+              payload: s.payload ?? get().task.payload,
+              error: s.error
             }
           });
         },
         ctrl.signal
       );
     } catch (err) {
-      const aborted = (err as Error)?.message === 'aborted';
+      const aborted =
+        (err as DOMException)?.name === 'AbortError' ||
+        (err as Error)?.message === 'aborted';
       set({
         task: {
           stage: aborted ? 'idle' : 'error',

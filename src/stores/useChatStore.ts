@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { ChatChunk, ChatMessage, Product } from '@/types';
-import { streamChatCompletion } from '@/services/mockApi';
+import { chatStream } from '@/services/api';
 import { checkBannedWords, maskPII } from '@/utils/compliance';
 
 interface ChatStoreState {
@@ -19,7 +19,7 @@ interface ChatStoreState {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const seedAssistant: ChatMessage = {
+const seedAssistant = (): ChatMessage => ({
   id: uid(),
   role: 'assistant',
   createdAt: Date.now(),
@@ -32,14 +32,14 @@ const seedAssistant: ChatMessage = {
         '您好，我是智能资产配置助手。可以试试问我：\n· "稳健型客户下半年应该怎么配？"\n· "纳指 QDII 现在还能上车吗？"\n· "金价创新高，黄金还能加仓吗？"'
     }
   ]
-};
+});
 
 export const useChatStore = create<ChatStoreState>((set, get) => ({
-  messages: [seedAssistant],
+  messages: [seedAssistant()],
   streaming: false,
   selectedCompare: [],
   bannedHits: [],
-  reset: () => set({ messages: [seedAssistant], selectedCompare: [], bannedHits: [] }),
+  reset: () => set({ messages: [seedAssistant()], selectedCompare: [], bannedHits: [] }),
   clearBannedHits: () => set({ bannedHits: [] }),
   toggleCompare: (p) =>
     set((s) => {
@@ -117,7 +117,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     };
 
     try {
-      for await (const evt of streamChatCompletion(masked, ctrl.signal)) {
+      for await (const evt of chatStream(masked, ctrl.signal)) {
         if (evt.type === 'thinking') {
           appendChunk({ id: uid(), type: 'thinking', content: evt.content });
         } else if (evt.type === 'text') {
@@ -132,9 +132,10 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
         }
       }
     } catch (err) {
-      if ((err as Error)?.message !== 'aborted') {
-        appendText('\n\n（生成中断，请稍后重试）');
-      }
+      const aborted =
+        (err as DOMException)?.name === 'AbortError' ||
+        (err as Error)?.message === 'aborted';
+      if (!aborted) appendText('\n\n（生成中断，请稍后重试）');
     } finally {
       set((s) => ({
         streaming: false,
