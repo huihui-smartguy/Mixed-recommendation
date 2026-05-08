@@ -111,6 +111,8 @@ export type ChatStreamEvent =
   | { type: 'thinking'; content: string }
   | { type: 'text'; content: string }
   | { type: 'widget'; widgetName: 'FundCard'; data: Product }
+  | { type: 'followup'; suggestions: string[] }
+  | { type: 'trailing_rec'; title?: string; products: Product[] }
   | { type: 'done' };
 
 /**
@@ -142,6 +144,10 @@ export async function* chatStream(
       yield { id: makeId(), type: 'text', content: d.content };
     } else if (d.type === 'widget') {
       yield { id: makeId(), type: 'widget', widgetName: d.widgetName, data: d.data };
+    } else if (d.type === 'followup') {
+      yield { id: makeId(), type: 'followup', suggestions: d.suggestions };
+    } else if (d.type === 'trailing_rec') {
+      yield { id: makeId(), type: 'trailing_rec', title: d.title, products: d.products };
     }
   }
 }

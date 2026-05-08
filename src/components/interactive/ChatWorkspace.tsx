@@ -51,6 +51,7 @@ export default function ChatWorkspace() {
             message={m}
             selectedCompare={selectedCompare}
             onToggleCompare={toggleCompare}
+            onFollowupPick={(s) => setInput(s)}
           />
         ))}
 

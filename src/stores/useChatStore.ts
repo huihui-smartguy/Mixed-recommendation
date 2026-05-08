@@ -129,6 +129,15 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
             widgetName: evt.widgetName,
             data: evt.data
           });
+        } else if (evt.type === 'followup' && evt.suggestions) {
+          appendChunk({ id: uid(), type: 'followup', suggestions: evt.suggestions });
+        } else if (evt.type === 'trailing_rec' && evt.products) {
+          appendChunk({
+            id: uid(),
+            type: 'trailing_rec',
+            title: evt.title,
+            products: evt.products
+          });
         }
       }
     } catch (err) {

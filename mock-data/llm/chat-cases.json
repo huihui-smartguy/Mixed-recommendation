@@ -1,0 +1,193 @@
+{
+  "_comment": "浮动机器人 / 交互式推荐 LLM 用例数据。当 LLM_API_KEY 未配置时，prodMiddleware 会按 prompt 关键词匹配下面的 case，按 events[] 顺序作为 SSE 下发给前端。新增/修改 case 后无需重启即生效（每次请求都会重新读取本文件）。",
+  "_protocol": {
+    "thinking": "{ type: 'thinking', content: string } 折叠面板里的思考链",
+    "text": "{ type: 'text', content: string } 打字机文本，相邻多次会被前端合并",
+    "widget": "{ type: 'widget', widgetName: 'FundCard', data: Product } 产品微卡片",
+    "followup": "{ type: 'followup', suggestions: string[] } 智能追问气泡（机器人专用）",
+    "trailing_rec": "{ type: 'trailing_rec', products: Product[] } 尾随推荐气泡（机器人专用）",
+    "done": "{ type: 'done' } 流结束 sentinel"
+  },
+  "cases": [
+    {
+      "id": "case-stable",
+      "match": ["稳健", "保守", "低波", "压舱", "债"],
+      "intent": "稳健配置咨询",
+      "events": [
+        { "type": "thinking", "content": "解析客户问题，识别为稳健诉求…" },
+        { "type": "thinking", "content": "查询 onerec 候选池，按夏普比率排序…" },
+        { "type": "thinking", "content": "校验产品代码合法性，避免幻觉资产…" },
+        { "type": "text", "content": "为您挑选了 3 只稳健型产品，建议以中长期债券为压舱石，叠加少量红利策略与黄金做风险对冲。" },
+        {
+          "type": "widget",
+          "widgetName": "FundCard",
+          "data": {
+            "code": "003376",
+            "name": "汇添富中债3-5年政策金融债",
+            "category": "中长期纯债",
+            "netValue": 1.1428,
+            "changePct": 0.04,
+            "return1y": 4.7,
+            "return3y": 14.9,
+            "maxDrawdown": -1.8,
+            "sharpe": 1.32,
+            "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
+            "reason": "提供组合压舱石作用，久期适中、违约风险低"
+          }
+        },
+        {
+          "type": "widget",
+          "widgetName": "FundCard",
+          "data": {
+            "code": "180202",
+            "name": "南方红利低波50ETF",
+            "category": "红利策略",
+            "netValue": 1.4218,
+            "changePct": 0.36,
+            "return1y": 9.8,
+            "return3y": 22.7,
+            "maxDrawdown": -14.6,
+            "sharpe": 0.82,
+            "sparkline": [1.0, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08, 1.1, 1.12, 1.13, 1.15, 1.16],
+            "reason": "高股息+低波动，匹配稳健型客户现金流诉求"
+          }
+        },
+        {
+          "type": "trailing_rec",
+          "title": "您可能还感兴趣",
+          "products": [
+            {
+              "code": "518880",
+              "name": "华安黄金易ETF",
+              "category": "商品·黄金",
+              "netValue": 5.4123,
+              "changePct": 0.58,
+              "return1y": 18.2,
+              "return3y": 42.5,
+              "maxDrawdown": -12.4,
+              "sharpe": 1.08,
+              "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
+              "reason": "做组合的波动平滑器"
+            }
+          ]
+        },
+        {
+          "type": "followup",
+          "suggestions": [
+            "这只债基过去最大回撤是多少？",
+            "如何分批建仓黄金 ETF？",
+            "我能承受多大的下跌？请帮我评估"
+          ]
+        },
+        { "type": "done" }
+      ]
+    },
+    {
+      "id": "case-tech-overseas",
+      "match": ["纳指", "海外", "QDII", "qdii", "科技", "成长", "美股"],
+      "intent": "海外科技配置咨询",
+      "events": [
+        { "type": "thinking", "content": "识别为海外权益诉求…" },
+        { "type": "thinking", "content": "评估当前美元走势与汇率对冲成本…" },
+        { "type": "text", "content": "海外科技板块景气度持续回暖，可在权益核心仓位上加入纳指 QDII，提升组合进取性。需注意溢价控制。" },
+        {
+          "type": "widget",
+          "widgetName": "FundCard",
+          "data": {
+            "code": "513100",
+            "name": "国泰纳斯达克100ETF",
+            "category": "QDII·海外权益",
+            "netValue": 4.5621,
+            "changePct": 1.65,
+            "return1y": 28.6,
+            "return3y": 64.2,
+            "maxDrawdown": -33.1,
+            "sharpe": 0.96,
+            "sparkline": [1.0, 1.05, 1.12, 1.08, 1.18, 1.25, 1.32, 1.28, 1.4, 1.45, 1.5, 1.56],
+            "reason": "全球科技龙头，对冲单一市场系统性风险"
+          }
+        },
+        {
+          "type": "followup",
+          "suggestions": [
+            "纳指 QDII 现在有溢价风险吗？",
+            "怎么分批买入避免追高？",
+            "对冲基金 vs 直接持有美股 ETF？"
+          ]
+        },
+        { "type": "done" }
+      ]
+    },
+    {
+      "id": "case-gold",
+      "match": ["黄金", "避险", "通胀", "金价"],
+      "intent": "黄金配置咨询",
+      "events": [
+        { "type": "thinking", "content": "解析黄金配置诉求…" },
+        { "type": "thinking", "content": "拉取实际利率与央行购金数据…" },
+        { "type": "text", "content": "金价虽创新高，但实际利率下行 + 央行持续购金趋势未变，建议组合中保留 5-8% 黄金。" },
+        {
+          "type": "widget",
+          "widgetName": "FundCard",
+          "data": {
+            "code": "518880",
+            "name": "华安黄金易ETF",
+            "category": "商品·黄金",
+            "netValue": 5.4123,
+            "changePct": 0.58,
+            "return1y": 18.2,
+            "return3y": 42.5,
+            "maxDrawdown": -12.4,
+            "sharpe": 1.08,
+            "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
+            "reason": "抗通胀与避险属性，与权益资产相关性较低"
+          }
+        },
+        {
+          "type": "followup",
+          "suggestions": [
+            "实物黄金 vs 黄金 ETF 哪个更适合长期？",
+            "金价回调到多少可以加仓？",
+            "黄金应该占组合多少比例？"
+          ]
+        },
+        { "type": "done" }
+      ]
+    },
+    {
+      "id": "case-default",
+      "match": ["*"],
+      "intent": "默认股债平衡建议",
+      "events": [
+        { "type": "thinking", "content": "正在为您寻找资产..." },
+        { "type": "text", "content": "基于股债平衡视角，下面是为您筛选的核心标的，建议分批建仓。" },
+        {
+          "type": "widget",
+          "widgetName": "FundCard",
+          "data": {
+            "code": "000961",
+            "name": "天弘沪深300ETF联接A",
+            "category": "宽基指数",
+            "netValue": 1.6234,
+            "changePct": 0.82,
+            "return1y": 12.4,
+            "return3y": 26.1,
+            "maxDrawdown": -18.2,
+            "sharpe": 0.74,
+            "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
+            "reason": "锚定 A 股核心，估值分位低于近五年中位数"
+          }
+        },
+        {
+          "type": "followup",
+          "suggestions": [
+            "我属于什么风险等级？",
+            "推荐一个稳健型组合",
+            "海外权益怎么配？"
+          ]
+        },
+        { "type": "done" }
+      ]
+    }
+  ]
+}

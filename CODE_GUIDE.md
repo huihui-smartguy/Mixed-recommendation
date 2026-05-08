@@ -22,13 +22,16 @@
 ## 1. 工程入口与启动
 
 ```
-pnpm install            # 装依赖 (含 vitest / jsdom / @types/node)
-pnpm dev                # http://localhost:5173, Vite 内嵌 mock 后端
+pnpm install            # 装依赖 (含 vitest / jsdom / @types/node / cross-env)
+pnpm dev                # 生产模式：调真实 LLM/onerec；缺凭证→脚本化降级
+pnpm copy               # 全 mock 模式：完全本地虚拟后端
 pnpm typecheck          # tsc --noEmit
-pnpm test               # 68 用例
+pnpm test               # 70 用例
 pnpm test:coverage      # 含 80% 行/语句/函数 + 75% 分支门槛
 pnpm build              # 产线构建
 ```
+
+两个 npm 脚本通过 `cross-env WORKBENCH_MODE=...` 区分；`vite.config.ts` 在 Node 启动阶段读取该环境变量，挑选挂载的 backend 插件（`prodBackendPlugin` 或 `mockBackendPlugin`）。Vite 启动时会打印模式横幅，方便确认。
 
 ### 关键配置文件
 
@@ -45,29 +48,42 @@ pnpm build              # 产线构建
 ## 2. 整体目录结构
 
 ```
+mock-data/
+├─ onerec/products.json      onerec 调试数据（snake_case 原始字段，含 _comment / _schema）
+└─ llm/chat-cases.json       浮动机器人对话用例（含 followup / trailing_rec）
+
 src/
-├─ main.tsx                  应用启动；ConfigProvider 注入金融语义色板（红涨绿跌）
-├─ App.tsx                   双 Tab + 全局水印 + 合规页脚
-├─ types/index.ts            领域模型与流式协议契约（前后端共享）
+├─ main.tsx                  应用启动；ConfigProvider 注入暖色主题
+├─ App.tsx                   双 Tab + 全局水印 + 合规页脚 + FloatingRobot
+├─ types/index.ts            领域模型；ChatChunk 含 followup / trailing_rec 类型
 ├─ utils/
-│  ├─ compliance.ts          PII 脱敏 + 违禁词检测 + 免责文案常量
-│  └─ format.ts              金融数字格式化（百分比 / 万亿 / 涨跌色）
+│  ├─ compliance.ts          PII 脱敏 + 违禁词检测 + 免责文案
+│  └─ format.ts              金融数字格式化
 ├─ services/
-│  ├─ sseParser.ts           text/event-stream 解析（纯函数 + 流读取）
+│  ├─ sseParser.ts           text/event-stream 解析
 │  ├─ onerecAdapter.ts       onerec 防腐层 + 防幻觉守卫
-│  ├─ api.ts                 fetch 真实客户端 (REST + SSE)
-│  └─ mockData.ts            演示用画像与候选池
+│  ├─ api.ts                 fetch 真实客户端（REST + SSE，含新事件类型）
+│  └─ mockData.ts            画像演示数据（被两套中间件共享）
 ├─ server/
-│  └─ devMockMiddleware.ts   Vite 插件，把 /api/v1/* 接成 “真后端”
-├─ stores/
-│  ├─ useChatStore.ts        交互式对话状态机
-│  └─ useReportStore.ts      生成式报告任务状态机
+│  ├─ devMockMiddleware.ts   pnpm copy 的全 mock 后端（任务化轮询 + 脚本化 SSE）
+│  └─ prodMiddleware.ts      pnpm dev 的生产后端：先打真接口，缺凭证降级
+├─ llm/
+│  ├─ client.ts              LLM 抽象客户端（Anthropic / OpenAI 兼容）
+│  └─ prompts/
+│     ├─ system.ts           财富顾问人设 + SSE 输出协议 + 防幻觉硬约束
+│     ├─ chat.ts             chat user prompt 构造（注入 onerec 候选池）
+│     └─ report.ts           报告 user prompt + 默认大类资产权重
+├─ stores/                   useChatStore.ts（含 followup / trailing_rec 处理）、useReportStore.ts
 ├─ components/
 │  ├─ layout/                GlobalHeader、KeepAlive
-│  ├─ generative/            ProfileWizard、StepLoading、ReportViewer、AllocationPieChart、BacktestLineChart
-│  └─ interactive/           ChatWorkspace、ChatBubble、ThinkingAccordion、FundCard、CompareDrawer、Sparkline
-├─ styles/global.css         设计令牌、响应式、骨架屏动画、水印背景
-└─ __tests__/                Vitest 单测：sseParser/onerecAdapter/api/compliance/format/chatStore/reportStore + setup
+│  ├─ generative/            ConversationTrigger、ButtonWizard（双触发拆分）、
+│  │                         ReportWorkspace、StepLoading、ReportViewer、
+│  │                         AllocationPieChart、BacktestLineChart
+│  ├─ interactive/           ChatWorkspace、ChatBubble、ThinkingAccordion、
+│  │                         FundCard、CompareDrawer、Sparkline
+│  └─ floating/              FloatingRobot（三态：closed → mini → open）
+├─ styles/global.css         暖色令牌（橙/红/米）+ 响应式 + 浮动机器人样式
+└─ __tests__/                70 个 Vitest 用例
 ```
 
 ### 分层依赖关系
@@ -172,9 +188,43 @@ toFiniteNumber(v, fallback): number
 
 ---
 
-## 4. 服务端 mock 中间件 (`server/devMockMiddleware.ts`)
+## 4. 服务端中间件 — 双模式
 
-把"真实后端"以 Vite 插件形态挂在 `/api/v1/*`，让前端 dev 环境也走真 fetch + 真 SSE，而不是直接读内存。这样：
+### 4.0 总览
+
+`vite.config.ts` 在 Node 启动阶段读 `process.env.WORKBENCH_MODE`：
+
+```
+WORKBENCH_MODE=production (pnpm dev)  →  prodBackendPlugin()
+WORKBENCH_MODE=mock       (pnpm copy) →  mockBackendPlugin()
+```
+
+两套中间件挂的路由完全相同 (`/api/v1/users/profiles`、`/api/v1/onerec/...`、`/api/v1/report/{generate,status}`、`/api/v1/chat/completions`)，前端零感知。区别仅在数据来源：
+
+| 路由 | mock (pnpm copy) | prod (pnpm dev) |
+| --- | --- | --- |
+| profiles | 内存常量 | 内存常量（同源；可换 DB） |
+| onerec | 静态选择候选池 | 优先 `ONEREC_BASE_URL`，失败回退 `mock-data/onerec/products.json` |
+| report | 阶段定时器 + 脚本拼 markdown | 阶段定时器 + 真实 LLM 撰写 markdown；缺 `LLM_API_KEY` 用兜底文案 |
+| chat | 脚本化 SSE | 真实 LLM 流；缺 `LLM_API_KEY` 按 prompt 关键词命中 `chat-cases.json` 回放 |
+
+### 4.1 prodMiddleware (`server/prodMiddleware.ts`)
+
+生产模式核心。设计原则：**任何配置项缺失都不阻塞 demo**。
+
+- **onerec 接口预留**：`fetchOnerec(userId)` 先尝试 `${ONEREC_BASE_URL}/products?userId=...`；非 2xx 或 throw 时打 warn 并 fallback 到本地 JSON。结果一律经 `normalizeOnerecResponse` 清洗。
+- **LLM 客户端**：服务端通过 `readLLMConfig()` 读环境变量，调用 `streamLLM()` 异步生成器逐 token 累积。两种 provider：
+  - `anthropic`: POST `/v1/messages`，`x-api-key` + `anthropic-version` 头
+  - `openai-compatible`: POST `/chat/completions`，`Authorization: Bearer` 头
+  - SSE 行解析 ([DONE] 终止符兼容)
+- **chat SSE 转发**：LLM 输出按 `\n\n` 切块，每块尝试 JSON parse；parse 失败则当作 `text` 段，保证客户端流式始终可用。
+- **报告任务**：`POST /report/generate` 立即返回 taskId，后台异步跑 `buildReportPayload`（包含 LLM 调用）；前端轮询 status 时根据已过时间在 STAGE_TIMINGS 中对位返回阶段。
+- **缓存**：`mock-data/` 下两份 JSON 在首次读取时缓存到内存，重启 dev 进程清掉。
+
+### 4.2 devMockMiddleware (`server/devMockMiddleware.ts`)
+
+老版 mock 后端，接 `pnpm copy`，便于无网络 / 无密钥环境演示：
+- 前端 dev 环境也走真 fetch + 真 SSE，而不是直接读内存
 - 前端代码无需 mock/prod 双分支
 - 单元测试可以独立 stub `global.fetch`
 - 联调时可以用 curl/Postman 直接打中间件验证协议
@@ -237,17 +287,23 @@ return <div style={{ display: active ? 'block' : 'none' }}>{children}</div>;
 
 副作用、定时器、SSE 连接、Zustand store 全部不被打断。代价是首屏会同时渲染两个 Tab；但因为 Tab 数固定且都是单页面，开销可接受。
 
-### 5.2 生成式工作台
+### 5.2 生成式工作台（V1.1 拆分）
 
 ```
 ReportWorkspace
-├─ ProfileWizard       客户画像选择 + 偏好标签 + 自然语言意图（双触发）
-└─ ReportViewer
-   ├─ StepLoading      报告未完成时 → 5 步进度 + 骨架屏
-   └─ Report 渲染区     报告完成后 → react-markdown + ECharts 饼图 + 折线
+├─ trigger-grid                                         <- 顶部双卡并列
+│  ├─ ConversationTrigger    自然语言意图 + Quick Intent chip
+│  └─ ButtonWizard           客户选择 + 偏好标签 + 三步向导按钮
+└─ ReportViewer (全宽)
+   ├─ StepLoading            5 步进度 + 骨架屏
+   └─ Markdown + ECharts 区   报告完成后渲染
 ```
 
-**双轨触发**：`ProfileWizard.trigger()` 同时被 `Button onClick` 与 `<TextArea onPressEnter>` 调用 — 自然语言入口与 GUI 入口共用一条路径。回车时 `e.preventDefault()` 防止 textarea 换行。
+**为什么拆**：原本 `ProfileWizard` 把"对话"与"按钮"两条交互路径塞在一张卡里，业务方反馈不够清晰。拆分后：
+- `ConversationTrigger` 强调对话感（暖橙渐变 + `CommentOutlined` 图标 + 顶部突出 Quick Intent chip）
+- `ButtonWizard` 强调结构化（暖红渐变 + 三步编号 ① 选客户 / ② 偏好 / ③ 点按钮）
+
+两者共享同一个 `useReportStore.form` —— 在对话框输入意图后切到按钮卡，已选客户与标签都还在；都通过 `startGeneration(profile)` 进入同一条任务流。
 
 **Step-Loading**：`StepLoading.tsx` 把 `ReportStage` 枚举映射到固定 5 步；当前阶段加 `active` 类名（蓝色光圈），已完成阶段加 `done` 类名（绿色 ✓）。底部三条骨架屏 (`@keyframes shimmer`) 缓解空白感。
 
@@ -255,7 +311,7 @@ ReportWorkspace
 
 **导出**：`exportPdf()` 借浏览器原生打印（`window.print`），CSS 端可补打印媒体查询隐藏非必要元素。生产环境推荐换成服务端 PDF（puppeteer / weasyprint），文档里也明确写了。
 
-### 5.3 交互式助手
+### 5.3 交互式助手 (主 Tab)
 
 ```
 ChatWorkspace
@@ -263,7 +319,9 @@ ChatWorkspace
 │  └─ ChatBubble × N
 │     ├─ ThinkingAccordion       折叠面板呈现 CoT 思考链
 │     ├─ bubble (text + cursor)  打字机 + 末尾 ▍闪烁
-│     └─ FundCard × N            产品微卡片（Sparkline + 加入对比）
+│     ├─ FundCard × N            产品微卡片（Sparkline + 加入对比）
+│     ├─ trailing-rec            尾随推荐组（"您可能还感兴趣"）
+│     └─ followup                智能追问 chip（点击直接回填输入框）
 ├─ compare-bar                   已选产品悬浮条（吸底）
 ├─ chat-input-area
 │  ├─ Alert (违禁词命中)
@@ -271,6 +329,41 @@ ChatWorkspace
 │  └─ compose (textarea + 发送/停止)
 └─ CompareDrawer                 雷达图 + 多维表格
 ```
+
+### 5.4 浮动机器人 "小颂" (`components/floating/FloatingRobot.tsx`)
+
+类 AI 涨乐 / 支付宝小助手，全局常驻在右下角。**与主 Tab 的对话台共享 `useChatStore`**——切到生成式 Tab 也能继续问机器人。
+
+三态切换：
+
+```
+   closed ──[click]──▶ mini ──[click chip / 展开]──▶ open
+     ▲                    │                            │
+     └─────[X 关闭]───────┴────[X 关闭] / [- 最小化]─┘
+```
+
+| 态 | 视觉 | 行为 |
+| --- | --- | --- |
+| `closed` | 56px 圆形 FAB（橙红渐变 + pulse 动画） | 点击 → mini |
+| `mini` | 280px 招呼气泡 + 头像 + 3 个建议 chip | 点击 chip 直接发送并切到 open；展开链接也切 open |
+| `open` | 380×560px 完整对话面板，复用 `ChatBubble` | 与主 Tab 同步消息，支持 followup 直接回填输入框 |
+
+**为什么不复用 `ChatWorkspace`**：浮动面板尺寸、bubble 字号、输入区都更紧凑，但消息流复用同一个 store 保证一致性。
+
+### 5.5 ChatBubble 新事件渲染
+
+新增两类 chunk 类型在 `ChatBubble.tsx` 内分支处理：
+
+```ts
+if (c.type === 'trailing_rec' && c.products) {
+  // 渲染暖橙虚线框 + 标题 + 多张 FundCard
+}
+if (c.type === 'followup' && c.suggestions) {
+  // 渲染 BulbOutlined + chip 数组；onChange → onFollowupPick(s)
+}
+```
+
+`onFollowupPick` prop 由父组件 (`ChatWorkspace` / `FloatingRobot`) 传入，决定追问点击后是回填输入框还是直接发送，两端体验保持自然。
 
 **`ChatBubble.tsx` 的合并策略**：
 
@@ -312,7 +405,19 @@ isLast && message.streaming  // 只有正在流式中且本段是最后一个文
    - `checkBannedWords` 命中即返回，不进入流式分支，不消耗 LLM token；
    - `maskPII` 把用户输入清洗后才落到消息流和接口请求里 — `userMsg.chunks[0].content` 与 `chatStream(masked)` 用的是同一份 `masked`，确保 UI 显示与后端看到的一致。
 
-### 5.5 全局样式 (`styles/global.css`)
+### 5.6 全局样式 (`styles/global.css`)
+
+**V1.1 暖色系切换**：
+
+```css
+--color-primary: #f97316;       /* 暖橙 */
+--color-primary-dark: #ea580c;
+--color-accent: #ef4444;        /* 强调橙红 */
+--bg-app: linear-gradient(180deg, #fff7ed 0%, #fff4e6 30%, #fff7ed 100%);
+--bg-header: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%);
+```
+
+**金融语义色保持不动**：
 
 **金融语义化色板**（设计令牌通过 CSS 变量发布）：
 
