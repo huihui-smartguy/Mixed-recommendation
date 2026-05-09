@@ -15,6 +15,7 @@ import CompareDrawer from './CompareDrawer';
 import ThinkingSidebar from './ThinkingSidebar';
 import ProductSheet from './ProductSheet';
 import PhoneChrome from './PhoneChrome';
+import UserProfileCard from './UserProfileCard';
 
 const PROMPT_CHIPS = [
   '稳健型客户下半年怎么配？',
@@ -184,6 +185,7 @@ export default function ChatWorkspace() {
 
       {viewMode === 'pc' ? (
         <div className="chat-shell pc-layout">
+          <UserProfileCard />
           <div className="chat-main">
             {stream}
             {composer}
@@ -192,6 +194,7 @@ export default function ChatWorkspace() {
         </div>
       ) : (
         <div className="mobile-frame-wrap">
+          <UserProfileCard />
           <div className="mobile-bezel">
             <div className="mobile-screen">
               <PhoneChrome />
@@ -201,8 +204,6 @@ export default function ChatWorkspace() {
               </div>
             </div>
           </div>
-          {/* 手机预览的"配套"思维链：仅 PC 浏览器宽度足够时并排展示，
-            * 移动端浏览器（窄屏）下方折叠堆叠 */}
           <div className="mobile-cot-wrap">
             <ThinkingSidebar messages={messages} />
           </div>

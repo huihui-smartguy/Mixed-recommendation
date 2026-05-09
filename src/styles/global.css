@@ -372,12 +372,17 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   overflow: hidden;
 }
 
-/* PC 双栏（主干 + 思维链侧栏） */
+/* PC 三栏（用户卡 + 主干 + 思维链） */
 .chat-shell.pc-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
   height: calc(100vh - 240px);
   min-height: 560px;
+}
+.chat-shell.pc-layout > .user-aside {
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-radius: 0;
 }
 .chat-shell.pc-layout .chat-main {
   display: flex;
@@ -388,6 +393,20 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
    * 表现就是"对话越积越长，外层却无法滚动"。 */
   min-height: 0;
   border-right: 1px solid var(--color-border);
+}
+.chat-shell.pc-layout > .cot-sidebar { border-radius: 0; }
+@media (max-width: 1100px) {
+  .chat-shell.pc-layout { grid-template-columns: 220px minmax(0, 1fr) 280px; }
+}
+@media (max-width: 920px) {
+  .chat-shell.pc-layout {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    height: auto;
+  }
+  .chat-shell.pc-layout > .user-aside,
+  .chat-shell.pc-layout .chat-main { border-right: none; border-bottom: 1px solid var(--color-border); }
+  .chat-shell.pc-layout .chat-main { height: 70vh; min-height: 500px; }
 }
 .chat-shell.pc-layout .chat-stream {
   flex: 1 1 0;
@@ -491,83 +510,85 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   padding: 24px 12px;
 }
 
-/* 移动端预览：手机外框（左）+ 配套思维链（右） */
+/* 移动端预览：用户卡（左）+ 手机外框（中）+ 思维链（右） */
 .mobile-frame-wrap {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 18px;
+  gap: 16px;
   padding: 18px 8px 32px;
   background: linear-gradient(180deg, #f4ece1 0%, #fbf6ef 100%);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
-  /* 阻止预览区滚动事件冒泡到外部 main —— 即便鼠标停留在缝隙里也不会顶开页面 */
+  flex-wrap: wrap;
   overscroll-behavior: contain;
 }
+/* 华为 Mate 60 / Pura 70 风格手机框 */
 .mobile-bezel {
   flex: 0 0 auto;
-  width: 396px;
+  width: 384px;
   max-width: 100%;
-  height: 820px;
-  max-height: calc(100vh - 200px);
-  background: #1a1410;
-  border-radius: 46px;
-  padding: 14px 11px 18px;
+  height: 832px;
+  max-height: calc(100vh - 180px);
+  background: linear-gradient(160deg, #1c1c1f 0%, #2a2a2c 50%, #1c1c1f 100%);
+  border-radius: 38px;
+  padding: 12px 9px 16px;
   box-shadow:
-    0 22px 42px rgba(40, 24, 12, 0.28),
-    inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+    0 22px 42px rgba(20, 20, 22, 0.32),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 4px rgba(0, 0, 0, 0.4);
   position: relative;
 }
-/* 灵动岛 */
+/* 单孔前置摄像头（替代 iPhone 灵动岛） */
 .mobile-bezel::before {
   content: '';
   position: absolute;
-  top: 22px;
+  top: 18px;
   left: 50%;
   transform: translateX(-50%);
-  width: 102px;
-  height: 28px;
-  background: #0a0807;
-  border-radius: 14px;
+  width: 22px;
+  height: 22px;
+  background:
+    radial-gradient(circle at 35% 35%, #1f3a4a 0%, #050505 60%, #000 100%);
+  border-radius: 50%;
   z-index: 4;
+  border: 1.5px solid rgba(255, 255, 255, 0.04);
   pointer-events: none;
 }
-/* 顶部听筒高光 */
+/* 镜头反光高光点 */
 .mobile-bezel::after {
   content: '';
   position: absolute;
-  top: 30px;
-  left: calc(50% + 28px);
-  width: 6px;
-  height: 6px;
-  background: #1f3a4a;
+  top: 21px;
+  left: calc(50% + 1px);
+  width: 5px;
+  height: 5px;
+  background: rgba(120, 180, 220, 0.6);
   border-radius: 50%;
   z-index: 5;
   pointer-events: none;
-  opacity: 0.85;
 }
 .mobile-screen {
   width: 100%;
   height: 100%;
   background: var(--bg-panel);
-  border-radius: 32px;
+  border-radius: 28px;
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
-  /* 兜底：确保滚动事件被困在屏幕内 */
   overscroll-behavior: contain;
 }
 
-/* 手机状态栏：时间 / 信号 / WiFi / 电量 */
+/* 手机状态栏：时间 / 中央摄像头 / 运营商 / 5G / 信号 / WiFi / 电量 */
 .phone-statusbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 22px 6px;
-  font-size: 13px;
-  font-weight: 700;
+  padding: 14px 18px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
   letter-spacing: 0.2px;
   color: var(--color-text);
   background: transparent;
@@ -575,21 +596,35 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   z-index: 1;
 }
 .phone-statusbar .phone-time {
-  min-width: 60px;
+  min-width: 50px;
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
 .phone-statusbar .phone-island-spacer {
-  flex: 0 0 110px;
+  flex: 0 0 60px;
   height: 1px;
 }
 .phone-statusbar .phone-indicators {
-  min-width: 80px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   justify-content: flex-end;
   color: var(--color-text);
+}
+.phone-statusbar .carrier-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-right: 1px;
+}
+.phone-statusbar .fiveg-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.4px;
 }
 
 /* 应用栏：APP 头像 + 标题 + 在线状态 */
@@ -645,12 +680,124 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   box-shadow: 0 0 0 3px rgba(10, 166, 110, 0.15);
 }
 
+/* 客户档案侧栏（PC + 手机预览模式共用） */
+.user-aside {
+  flex: 0 0 260px;
+  width: 260px;
+  height: 832px;
+  max-height: calc(100vh - 180px);
+  background: var(--bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-card);
+}
+.user-aside-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-primary-dark);
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-warm-soft) 100%);
+}
+.user-aside-header .anticon { color: var(--color-primary); }
+.user-aside-body {
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.user-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(160deg, var(--color-warm-soft), #ffffff);
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+}
+.user-avatar {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.user-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.user-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 2px;
+  border-bottom: 1px dashed var(--color-border);
+}
+.user-stat label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.user-stat strong {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 600;
+}
+.user-stat code {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  background: var(--color-warm-soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-primary-dark);
+}
+.user-tags label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+.user-aside-hint {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-warm-soft);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+.user-aside-hint .anticon { color: var(--color-primary); flex-shrink: 0; margin-top: 2px; }
+.user-aside-hint code { font-size: 11px; background: rgba(255,255,255,0.6); padding: 1px 4px; border-radius: 3px; color: var(--color-primary-dark); }
+
 /* 配套思维链（手机预览右侧） */
 .mobile-cot-wrap {
   flex: 0 0 320px;
   max-width: 100%;
-  height: 820px;
-  max-height: calc(100vh - 200px);
+  height: 832px;
+  max-height: calc(100vh - 180px);
   border: 1px solid var(--color-border);
   border-radius: 16px;
   overflow: hidden;
@@ -661,11 +808,18 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   height: 100%;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1280px) {
+  .mobile-frame-wrap { gap: 12px; }
+  .user-aside { flex: 0 0 220px; width: 220px; }
+  .mobile-cot-wrap { flex: 0 0 280px; }
+}
+@media (max-width: 1100px) {
   .mobile-frame-wrap { flex-direction: column; align-items: center; }
+  .user-aside,
   .mobile-cot-wrap {
     flex: 0 0 auto;
     width: 396px;
+    max-width: 100%;
     height: auto;
     max-height: 320px;
   }
@@ -687,7 +841,7 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   min-height: 0;
   overflow-y: auto;
   /* 关键：到底/到顶后不把滚动事件传染给外层 main —— 鼠标在手机预览内时，
-   * 整个 DeepRec+ 页面不会被一起带动；只有鼠标移到手机外面时才滚整页 */
+   * 整个 DeepRec 页面不会被一起带动；只有鼠标移到手机外面时才滚整页 */
   overscroll-behavior: contain;
   padding: 14px 12px 12px;
   display: flex;

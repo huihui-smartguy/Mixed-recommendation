@@ -37,7 +37,7 @@ export default function GlobalHeader() {
     <header className="global-header">
       <div className="brand">
         <span className="brand-mark">D·R</span>
-        <span>DeepRec+ · 深度推荐系统</span>
+        <span>DeepRec · 深度推荐系统</span>
         <Tag color="blue-inverse" style={{ marginLeft: 8, fontWeight: 500 }}>
           V1.2
         </Tag>
