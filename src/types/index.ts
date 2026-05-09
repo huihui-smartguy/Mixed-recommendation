@@ -52,6 +52,13 @@ export interface ReportPayload {
 
 export type ReportStage = 'idle' | 'queued' | 'profiling' | 'recall' | 'writing' | 'rendering' | 'done' | 'error';
 
+export interface ReportThinkingEntry {
+  /** 思维链来源：reasoning(模型原生) / section(章节进展) / system(中间件埋点) */
+  kind: 'reasoning' | 'section' | 'system';
+  text: string;
+  at: number;
+}
+
 export interface ReportTaskState {
   taskId?: string;
   stage: ReportStage;
@@ -59,6 +66,8 @@ export interface ReportTaskState {
   progress: number;
   error?: string;
   payload?: ReportPayload;
+  /** 真实后端思维链 —— 由 prodMiddleware 在 LLM 流式期间持续追加 */
+  thinkingTrail?: ReportThinkingEntry[];
 }
 
 export type ChatRole = 'user' | 'assistant';

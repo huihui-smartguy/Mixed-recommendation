@@ -49,6 +49,8 @@ export async function fetchOnerecCandidates(
 
 /* ------------------------- Report (异步轮询) ------------------------- */
 
+import type { ReportThinkingEntry } from '@/types';
+
 export interface ReportStatus {
   taskId: string;
   stage: 'queued' | 'profiling' | 'recall' | 'writing' | 'rendering' | 'done' | 'error';
@@ -56,6 +58,8 @@ export interface ReportStatus {
   progress: number;
   payload?: ReportPayload;
   error?: string;
+  /** 真实后端调用思维链（reasoning + 章节进展 + 中间件埋点），可为空 */
+  thinkingTrail?: ReportThinkingEntry[];
 }
 
 export async function submitReport(

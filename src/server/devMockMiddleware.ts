@@ -231,8 +231,31 @@ async function streamChatResponse(prompt: string, res: ServerResponse) {
   res.end();
 }
 
+/** mock 模式下的"伪思维链"——按阶段拼出来，与 prod 通用结构一致 */
+function mockThinkingTrail(elapsed: number): Array<{ kind: string; text: string; at: number }> {
+  const t0 = Date.now() - elapsed;
+  const trail: Array<{ kind: string; text: string; at: number }> = [];
+  let acc = 0;
+  const add = (kind: string, text: string, delay: number) => {
+    if (elapsed >= acc + delay) trail.push({ kind, text, at: t0 + acc + delay });
+    acc += delay;
+  };
+  add('system', '读取客户画像与持仓特征…', 200);
+  add('system', '调用 onerec 召回候选池…', 700);
+  add('reasoning', '基于风险等级裁剪候选池，按夏普比率初排序…', 600);
+  add('section', '正在撰写：客户画像速览', 400);
+  add('section', '正在撰写：配置主张', 500);
+  add('section', '正在撰写：大类资产权重', 400);
+  add('section', '正在撰写：底层标的精选', 500);
+  add('section', '正在撰写：再平衡纪律', 300);
+  add('section', '正在撰写：风险提示', 200);
+  add('system', '渲染图表与表格、注入合规水印…', 300);
+  return trail;
+}
+
 function reportStatus(t: ReportTaskInternal) {
   const elapsed = Date.now() - t.startedAt;
+  const thinkingTrail = mockThinkingTrail(elapsed);
   let acc = 0;
   for (const s of STAGE_TIMINGS) {
     if (elapsed < acc + s.delay) {
@@ -240,7 +263,8 @@ function reportStatus(t: ReportTaskInternal) {
         taskId: t.taskId,
         stage: s.stage,
         message: s.message,
-        progress: s.progress
+        progress: s.progress,
+        thinkingTrail
       };
     }
     acc += s.delay;
@@ -250,7 +274,14 @@ function reportStatus(t: ReportTaskInternal) {
     const profile = mockProfiles.find((p) => p.id === t.profileId);
     if (!profile) {
       t.error = `unknown profile ${t.profileId}`;
-      return { taskId: t.taskId, stage: 'error', message: t.error, progress: 0, error: t.error };
+      return {
+        taskId: t.taskId,
+        stage: 'error',
+        message: t.error,
+        progress: 0,
+        error: t.error,
+        thinkingTrail
+      };
     }
     t.payload = buildReportPayload(t.taskId, profile);
   }
@@ -259,7 +290,8 @@ function reportStatus(t: ReportTaskInternal) {
     stage: 'done',
     message: '生成完毕',
     progress: 100,
-    payload: t.payload
+    payload: t.payload,
+    thinkingTrail
   };
 }
 
