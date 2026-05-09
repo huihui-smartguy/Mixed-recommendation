@@ -1,12 +1,21 @@
 export type RiskLevel = 'C1' | 'C2' | 'C3' | 'C4' | 'C5';
 
 export interface UserProfile {
+  /** 与 onerec 协议一致的 uid；保留 id 别名兼容旧代码 */
   id: string;
+  uid: string;
+  /** 客户真实姓名（用于卡片展示） */
+  name: string;
+  /** 旧字段：含称谓后缀的展示名，如"客户A · 稳健型"；保留兼容 */
   displayName: string;
+  /** onerec 输入端那段画像描述串，作为 LLM 上下文与 UserProfileCard 详情展示 */
+  user_profile?: string;
   riskLevel: RiskLevel;
   aum: number;
   age: number;
   preferenceTags: string[];
+  /** 历史持仓串（onerec hist_products），可选；UserProfileCard 二级展开 */
+  hist_products?: string;
 }
 
 export type AssetClass =

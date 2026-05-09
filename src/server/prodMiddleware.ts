@@ -15,6 +15,7 @@ import { SYSTEM_PROMPT } from '../llm/prompts/system';
 import { buildChatUserPrompt } from '../llm/prompts/chat';
 import { buildReportUserPrompt, defaultAllocations } from '../llm/prompts/report';
 import { readLLMConfig, streamLLM } from '../llm/client';
+import { redactBankNames } from '../utils/compliance';
 
 /**
  * 生产中间件（pnpm dev）
@@ -252,7 +253,11 @@ async function callLLMForReport(
       onContent(tok);
     }
     pushTrail(task, { kind: 'system', text: `LLM 流结束，输出 ${out.length} 字` });
-    return out.trim() || null;
+    const redacted = redactBankNames(out.trim());
+    if (redacted !== out.trim()) {
+      pushTrail(task, { kind: 'system', text: '已对生成内容做银行名称脱敏处理' });
+    }
+    return redacted || null;
   } catch (err) {
     const msg = (err as Error).message;
     console.warn(`[prodMiddleware] LLM report failed: ${msg}`);
@@ -283,7 +288,8 @@ async function buildReportPayload(
     task.preferenceTags,
     task
   );
-  const markdown = llmMarkdown ?? fallbackMarkdown(profile, allocations, products);
+  // fallback 兜底也走脱敏，统一对外契约
+  const markdown = llmMarkdown ?? redactBankNames(fallbackMarkdown(profile, allocations, products));
 
   return {
     taskId: task.taskId,

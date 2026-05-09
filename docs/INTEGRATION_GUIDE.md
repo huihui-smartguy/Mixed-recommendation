@@ -101,34 +101,69 @@ Python sidecar: backend/onerec_service/app/main.py
 真实 onerec.OneRecRecommender（在 _RealRecommender 里加载模型）
 ```
 
-### 2.2 sidecar 暴露的契约
+### 2.2 sidecar 暴露的契约（与 docs/onerec_example.md 真实形态一致）
 
 ```
-GET /products?userId=CUST-A&topK=8
+GET /products?userId=1000000054&topK=8
 Authorization: Bearer <ONEREC_API_TOKEN>     # 可选
 → 200
 {
-  "userId": "CUST-A",
-  "items": [
-    {
-      "product_code": "003376",
-      "product_name": "汇添富中债3-5年政策金融债",
-      "type": "中长期纯债",
-      "net_value": 1.1428,
-      "change_pct": 0.04,
-      "return_1y": 4.7,
-      "return_3y": 14.9,
-      "max_drawdown": -1.8,
-      "sharpe": 1.32,
-      "sparkline": [1.0, 1.005, ...],
-      "recommendation": "组合压舱石作用，久期适中"
+  "uid": "1000000054",
+  "user_profile": "客户风险等级R2，金融资产总额108.70万元。已投资资产108.70万元...",
+  "hist_products": "<|sid_begin|>...<|sid_end|>: 产品属于...持有市值...总收益...",
+  "recommendations_by_type": {
+    "基金": {
+      "raw_pid": ["P00086"],
+      "raw_texts": ["QDII-基金类产品..."],
+      "recommended_pids": ["P00252"],
+      "recommended_texts": [
+        "FOF - 基金类产品，风险等级为R3，产品名称为ESG责任号。"
+      ],
+      "recommendation_count": 1,
+      "similarity": [0.0018]
     },
-    ...
-  ]
+    "理财": {
+      "recommended_pids": ["P00647"],
+      "recommended_texts": [
+        "现金管理类 - 理财类产品，风险等级为R2，产品名称为可转债优选号。"
+      ],
+      ...
+    }
+  }
 }
 ```
 
-字段命名采用 `snake_case`，前端 `src/services/onerecAdapter.ts::normalizeOnerecResponse()` 会把 NaN / 字符串数字 / 空 sparkline 清洗成标准 `Product[]`。**真实 onerec 字段命名不同时，请在 sidecar 的 `_RealRecommender.predict()` 里映射，不要去改前端 adapter。**
+`src/services/onerecAdapter.ts::normalizeOnerecResponse()` 自动识别这一形态，把
+`recommendations_by_type[type].recommended_pids[i]` 与 `recommended_texts[i]` 一一配对，
+用正则解析 `产品名称为...`、`风险等级为R\d`、`历史收益水平(%)\d+` 字段，组装成
+内部 `Product[]` 给 LLM prompt 使用。**额外字段（如 `hist_products`、`user_profile`）
+被 BFF 注入到画像 / Prompt，不会丢失。**
+
+> 兼容：旧的扁平 `Product[]`（含 `product_code/product_name/type/...`）依然可用，
+> 仅当响应里没有 `recommendations_by_type` 才走旧路径。
+
+### 2.2.1 onerec 上游请求体（参考 docs/request.md）
+
+Sidecar 内部如果调用真实 onerec HTTP 服务，body 形态为：
+
+```json
+POST /v1/completions
+Authorization: Bearer {your_api_key}
+
+{
+  "model": "OneRec-8B-full-tunning",
+  "prompt": "客户风险等级R3，金融资产总额166.00万元...",
+  "max_tokens": 512,
+  "temperature": 0.9,
+  "top_p": 0.95,
+  "n": 3,
+  "frequency_penalty": 0.5,
+  "presence_penalty": 0.5
+}
+```
+
+由 `_RealRecommender.predict()` 拉客户特征后渲染成 prompt 字符串，详见
+[`backend/onerec_service/app/recommender.py`](../backend/onerec_service/app/recommender.py)。
 
 ### 2.3 配置（项目根 `.env`）
 
@@ -193,9 +228,22 @@ const llmMarkdown = await callLLMForReport(
 
 | 文件 | 角色 |
 |---|---|
-| `system.ts` (`SYSTEM_PROMPT`) | 财富顾问人设、SSE 输出协议、防幻觉硬约束（推荐 code 必须出自候选池） |
-| `report.ts` (`buildReportUserPrompt`) | 报告 user prompt，注入客户画像 + onerec 候选池 + 6 章节骨架 |
-| `chat.ts` (`buildChatUserPrompt`) | 交互对话 user prompt，注入候选池 |
+| `system.ts` (`SYSTEM_PROMPT`) | 私行财富顾问人设、6 章节 Markdown 大纲、3 大业务红线（数据一致性 / 超配无减持 / 黄金三段论）、SSE 输出协议、防幻觉硬约束 |
+| `report.ts` (`buildReportUserPrompt`) | 资产配置报告 user prompt，按 [`docs/prompt.md`](./prompt.md) 私行模板注入 {Client_Info}/{Holdings}/{Target_Allocation}/{Macro_Views}/{Product_Pool} 五段变量 |
+| `chat.ts` (`buildChatUserPrompt`) | 交互对话 user prompt，注入候选池与画像速览 |
+
+### 3.3 银行名称脱敏
+
+LLM 在生成报告时可能复用 prompt 中的银行品牌内容（"浦发银行"等）。为避免对外
+文档暴露具体行别，`src/utils/compliance.ts::redactBankNames()` 在 `prodMiddleware`
+拿到 LLM 输出后**立即统一替换**为 `[XX银行]`：
+
+| 命中名单 | 替换 |
+|---|---|
+| 浦发银行 / 中国工商银行 / 工商银行 / 招商银行 / ... 全 25 家主要中资银行 | `[XX银行]` |
+
+脱敏完成后再写入 `task.payload.markdown`，前端 ReportViewer 看到的已经是脱敏版本。
+若需要保留具体行别（白名单场景），改 `BANK_NAMES` 数组即可。
 
 **真实 onerec 的输出会原样进入 prompt**，模型只能在这个池子里推荐 `product_code`，否则被 `gateProductCodes()`（`src/services/onerecAdapter.ts:119`）过滤掉。
 
@@ -272,12 +320,15 @@ ReportViewer.tsx → StepLoading 把 thinkingTrail 渲染成"真实后端调用�
 
 | 字段 | 类型 | 用途 |
 |---|---|---|
-| `id` | string | onerec sidecar 的 `userId` 查询参数 |
-| `displayName` | string | 拼进 prompt 的 `【客户画像】` 块，让 LLM 称呼客户 |
+| `uid` | string | **onerec 协议字段**，sidecar 的 `userId` 查询参数；与 `id` 等价（兼容旧字段） |
+| `name` | string | **客户真实姓名**（卡片展示 + Prompt 称谓） |
+| `user_profile` | string | **onerec 输入端那段画像描述串**，前端展开展示，后端原样注入 LLM prompt |
+| `displayName` | string | 旧字段：含称谓后缀的展示名（如"客户A · 稳健型"），保留兼容 |
 | `riskLevel` | `'C1'\|'C2'\|'C3'\|'C4'\|'C5'` | 决定 LLM 写作语气、能否推荐高弹性资产 |
 | `aum` | number (单位：元) | 资产规模影响配置颗粒度 |
 | `age` | number | 影响生命周期建议（年龄越大越偏稳健） |
 | `preferenceTags` | string[] | 软偏好；LLM 会显式呼应这些标签 |
+| `hist_products` | string? | 历史持仓串（onerec hist_products），可选；UserProfileCard 二级展开 |
 
 请求示例：
 
@@ -290,7 +341,10 @@ Accept: text/event-stream
   "prompt": "下半年怎么配？",
   "profile": {
     "id": "CUST-A",
+    "uid": "1000000261",
+    "name": "张明远",
     "displayName": "客户A · 稳健型",
+    "user_profile": "客户风险等级R3，金融资产总额128.00万元...",
     "riskLevel": "C3",
     "aum": 1280000,
     "age": 42,

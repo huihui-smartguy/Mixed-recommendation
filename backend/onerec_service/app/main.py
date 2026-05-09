@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__, recommender
 from .config import settings
-from .schemas import HealthResponse, OneRecItem, OneRecResponse
+from .schemas import HealthResponse, OneRecResponse
 
 
 @asynccontextmanager
@@ -82,20 +82,22 @@ def healthz() -> HealthResponse:
 @app.get(
     "/products",
     response_model=OneRecResponse,
-    response_model_by_alias=True,
     dependencies=[Depends(_require_token)],
-    summary="按用户召回 top-K 候选产品（onerec）",
+    summary="按用户召回 top-K 候选产品（onerec real shape）",
+    description=(
+        "返回与 docs/onerec_example.md 完全一致的形态："
+        "uid / user_profile / hist_products / recommendations_by_type。"
+        "Node BFF 端 onerecAdapter 会自动解析。"
+    ),
 )
 def get_products(
-    userId: str = Query(..., min_length=1, description="客户 ID，与前端 profile.id 一致"),
+    userId: str = Query(..., min_length=1, description="客户 uid，与前端 profile.uid 一致"),
     topK: int = Query(
         default=None,  # type: ignore[arg-type]
         ge=1,
         le=64,
-        description="召回数量；缺省时使用 ONEREC_DEFAULT_TOPK",
+        description="每个分组的召回上限；缺省使用 ONEREC_DEFAULT_TOPK",
     ),
 ) -> OneRecResponse:
     k = topK or settings.default_top_k
-    raw = recommender.recommend(user_id=userId, top_k=k)
-    items = [OneRecItem.model_validate(r) for r in raw]
-    return OneRecResponse(userId=userId, items=items)
+    return recommender.recommend(uid=userId, top_k=k)

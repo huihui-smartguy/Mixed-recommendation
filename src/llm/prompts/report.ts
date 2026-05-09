@@ -8,44 +8,76 @@ export interface ReportPromptContext {
 }
 
 /**
- * 构造生成式报告的 user message。
- * 输出预期是一段长 Markdown，因此不走 SSE 事件协议，
- * 由 prodMiddleware 拼成完整 ReportPayload 后下发。
+ * 资产配置报告 user prompt —— 依据 docs/prompt.md 的私行级模板拼装。
+ *
+ * 关键点：
+ *  · Role 在 SYSTEM_PROMPT 已定义；本函数只往 user message 里填变量
+ *  · 强制要求 LLM 按 docs/prompt.md 的 Markdown 大纲输出
+ *  · 注入"超配无减持""新增补足型黄金三段论"等核心业务规则
+ *  · onerec 候选池作为 {Product_Pool} 注入，LLM 不得跳出此池推荐
+ *  · 输出后再由 src/utils/compliance.ts::redactBankNames() 在中间件里脱敏
  */
 export function buildReportUserPrompt(ctx: ReportPromptContext): string {
   const { profile, candidates, intent, preferenceTags } = ctx;
+
+  const aumWan = (profile.aum / 10000).toFixed(2);
+
   const candidatesBlock = candidates
-    .map((p) => `- ${p.code} | ${p.name} | ${p.category} | 近1年 ${p.return1y}% | 近3年 ${p.return3y}% | 最大回撤 ${p.maxDrawdown}% | 夏普 ${p.sharpe}`)
+    .map(
+      (p) =>
+        `- ${p.code} | ${p.name} | ${p.category} | 净值 ${p.netValue} | 近1年 ${p.return1y}% | 近3年 ${p.return3y}% | 最大回撤 ${p.maxDrawdown}% | 夏普 ${p.sharpe} | onerec 推荐理由：${p.reason}`
+    )
     .join('\n');
 
-  return `请为以下客户生成一份完整的资产配置建议书（Markdown 格式，1500-2500 字）。
+  const profileLine = profile.user_profile
+    ? `\n- onerec 原始 user_profile：${profile.user_profile}`
+    : '';
 
-【客户画像】
-- ID：${profile.id}
-- 姓名：${profile.displayName}
+  return `请基于以下变量数据，严格遵循系统 prompt 中的【核心业务红线】与【输出 Markdown 模板】，生成一份高度定制化、专业、数据自洽的《私人银行资产配置建议报告》。
+
+# 📥 Input Data Context
+
+## {Client_Info}
+- 姓名：${profile.name ?? profile.displayName}
+- 客户编号 / UID：${profile.uid ?? profile.id}
+- 年龄：${profile.age} 岁
 - 风险等级：${profile.riskLevel}
-- 在管资产：${(profile.aum / 10000).toFixed(0)} 万元
-- 年龄：${profile.age}
-- 偏好标签：${profile.preferenceTags.join('、')}
-${preferenceTags.length ? `- 本次额外偏好：${preferenceTags.join('、')}` : ''}
-${intent ? `- 客户意图：${intent}` : ''}
+- 偏好标签：${profile.preferenceTags.join('、')}${preferenceTags.length ? `（本次额外偏好：${preferenceTags.join('、')}）` : ''}
+- 投资经验：5-10 年
+- 所属行业：制造业${profileLine}
+${intent ? `- 客户本次意图：${intent}` : ''}
 
-【onerec 召回候选池（请只在此池中挑选）】
+## {Holdings}
+- 总资产 (AUM)：${aumWan} 万元
+- 五大类资产当前金额（自动检测）：参考 user_profile 描述的现金管理 / 固定收益 / 权益 / 保障 / 另类金额；保持金额加总等于 AUM
+- 临到期产品：近 30 天内 0 款产品到期，可继续围绕现有节奏优化
+
+## {Target_Allocation}（按风险等级 ${profile.riskLevel} 取建议区间）
+- 现金管理：建议 10%
+- 固定收益：建议区间 ${profile.riskLevel === 'C5' ? '15%-30%' : profile.riskLevel === 'C4' ? '30%-55%' : '45%-83%'}
+- 权益类：建议区间 ${profile.riskLevel === 'C5' ? '40%-65%' : profile.riskLevel === 'C4' ? '20%-35%' : '8%-14%'}
+- 保障类：建议 10%
+- 另类：建议 5%
+
+## {Macro_Views}（本季度大类资产评级）
+- 全球：地缘冲突推升油价，美联储 Q2 维稳，海外股债短期震荡
+- 国内：流动性维持均衡偏松，A 股估值低位，权益结构性机会值得布局
+- 大类资产评级：固收（标配）、A 股 / 港股（标配）、美股（中低配）、黄金（中高配）
+
+## {Product_Pool}（必须严格只在此池中推荐 product_code）
 ${candidatesBlock}
 
-【输出要求】
-1. 标题以 H1 开头：${profile.displayName} · 资产配置建议书
-2. 必须包含以下章节（H2）：
-   - 一、客户画像速览
-   - 二、配置主张
-   - 三、大类资产权重（用列表给出占比）
-   - 四、底层标的精选（用 Markdown 表格）
-   - 五、再平衡纪律
-   - 六、风险提示
-3. 表格必须使用 Markdown GFM 语法
-4. 推荐 code 必须严格出自候选池
-5. 不要包含任何"保本""稳赚""一定涨"等违规词
-6. 末尾不要免责声明（前端会自动注入）`;
+# 🎯 输出要求
+
+1. 严格遵守系统 prompt 中的【核心业务红线】：数据一致性、超配无减持、新增补足型黄金三段论
+2. 严格按 docs/prompt.md 的 Markdown 大纲与表格结构输出，章节顺序不得调换
+3. 推荐产品的 product_code 必须严格存在于上面的 {Product_Pool}
+4. 在"二、客户分析"中渲染包含五大类金额、配比、收益的表格，配比之和必须 = 100.00%
+5. 在"三、资产配置建议"中输出"建议配比 vs 存量配比 vs 新增配置缺口"对比表，缺口列严格选用以下专用词汇：
+   适度补充 / 建议增配 / 维持配置 / 暂不新增 / 建议新增
+6. 在"四、产品推荐"中先给概览表，再给每条产品的"黄金三段论"独立论述
+7. 不得使用"保本""稳赚""一定涨"等违规词；末尾不要再写免责声明（前端会自动注入）
+8. 输出长度：1500-2500 字`;
 }
 
 /**

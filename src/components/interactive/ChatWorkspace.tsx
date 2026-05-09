@@ -43,11 +43,26 @@ export default function ChatWorkspace() {
   const [viewMode, setViewMode] = useState<ChatViewMode>('pc');
   const [sheetProduct, setSheetProduct] = useState<Product | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
+  const lastUserMsgIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
-    // 如果用户主动向上滚动了 80px 以上，不再强制吸底，让用户自由翻看历史
+
+    // 1) 用户刚发出新消息（最末尾出现一条新的 user 消息）→ 无论之前滚到哪都强制吸底，
+    //    保证看得见自己的提问 + 流式回复的开端。这是修复"长对话历史下无法滚到底部"的核心。
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (lastUser && lastUser.id !== lastUserMsgIdRef.current) {
+      lastUserMsgIdRef.current = lastUser.id;
+      // 用 requestAnimationFrame 等 layout 完成后再吸底，避免 scrollHeight 还没更新
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      });
+      return;
+    }
+
+    // 2) 视图模式切换 → 也强制吸底（PC ↔ 手机预览）
+    // 3) 流式追加 / 普通刷新 → 仅当用户已经接近底部才追着滚，让向上翻看的体验不被打断
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (distance < 200) {
       el.scrollTo({ top: el.scrollHeight, behavior: streaming ? 'auto' : 'smooth' });
@@ -72,15 +87,17 @@ export default function ChatWorkspace() {
         />
       )}
       <div className="prompt-chips">
-        {PROMPT_CHIPS.map((c) => (
-          <Tag.CheckableTag
-            key={c}
-            checked={false}
-            onChange={() => setInput(c)}
-          >
-            {c}
-          </Tag.CheckableTag>
-        ))}
+        {/* 仅 PC 模式展示固定提问；手机模式按真机交互习惯隐藏，避免遮挡输入区 */}
+        {viewMode === 'pc' &&
+          PROMPT_CHIPS.map((c) => (
+            <Tag.CheckableTag
+              key={c}
+              checked={false}
+              onChange={() => setInput(c)}
+            >
+              {c}
+            </Tag.CheckableTag>
+          ))}
         <span style={{ flex: 1 }} />
         <Button
           size="small"

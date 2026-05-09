@@ -3,6 +3,8 @@ import type { ReportPayload, UserProfile } from '@/types';
 
 const profile: UserProfile = {
   id: 'CUST-A',
+  uid: 'CUST-A',
+  name: '客户A',
   displayName: '客户A',
   riskLevel: 'C3',
   aum: 1_000_000,

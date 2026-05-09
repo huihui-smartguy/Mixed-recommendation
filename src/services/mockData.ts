@@ -3,7 +3,16 @@ import type { Product, UserProfile } from '@/types';
 export const mockProfiles: UserProfile[] = [
   {
     id: 'CUST-A',
+    uid: '1000000261',
+    name: '张明远',
     displayName: '客户A · 稳健型',
+    user_profile:
+      '客户风险等级R3，金融资产总额128.00万元。已投资资产128.00万元，其中现金管理类' +
+      '12.60万元、固定收益类85.10万元、权益类4.60万元、保障类25.70万元、另类0.00万元。' +
+      '累计总收益5.20万元。该客户 年龄42，职业122.00，性别1.00，学历4.00，投资经验5-10年。',
+    hist_products:
+      '<|sid_begin|><s_a_4200><s_b_600><s_c_4580><|sid_end|>: 产品属于固收类，风险等级为R2；' +
+      ' <|sid_begin|><s_a_2610><s_b_3184><s_c_1857><|sid_end|>: 产品属于现金管理类，风险等级为R1；',
     riskLevel: 'C3',
     aum: 1_280_000,
     age: 42,
@@ -11,7 +20,15 @@ export const mockProfiles: UserProfile[] = [
   },
   {
     id: 'CUST-B',
+    uid: '1000000054',
+    name: '王雅琴',
     displayName: '客户B · 平衡型',
+    user_profile:
+      '客户风险等级R4，金融资产总额360.00万元。已投资资产360.00万元，其中现金管理类' +
+      '38.40万元、固定收益类155.30万元、权益类108.20万元、保障类42.30万元、另类15.80万元。' +
+      '累计总收益24.50万元。该客户 年龄36，职业105.00，性别2.00，学历5.00，投资经验5-10年。',
+    hist_products:
+      '<|sid_begin|><s_a_1661><s_b_2479><s_c_1254><|sid_end|>: 产品属于权益类，风险等级为R3；',
     riskLevel: 'C4',
     aum: 3_600_000,
     age: 36,
@@ -19,7 +36,16 @@ export const mockProfiles: UserProfile[] = [
   },
   {
     id: 'CUST-C',
+    uid: '1000000312',
+    name: '李泽阳',
     displayName: '客户C · 进取型',
+    user_profile:
+      '客户风险等级R5，金融资产总额840.00万元。已投资资产840.00万元，其中现金管理类' +
+      '21.50万元、固定收益类94.30万元、权益类520.80万元、保障类68.40万元、另类135.00万元。' +
+      '累计总收益128.20万元。该客户 年龄31，职业104.00，性别1.00，学历6.00，投资经验10年以上。',
+    hist_products:
+      '<|sid_begin|><s_a_1661><s_b_185><s_c_8191><|sid_end|>: 产品属于权益类，风险等级为R5；' +
+      ' <|sid_begin|><s_a_4200><s_b_7077><s_c_4195><|sid_end|>: 产品属于另类，风险等级为R4；',
     riskLevel: 'C5',
     aum: 8_400_000,
     age: 31,

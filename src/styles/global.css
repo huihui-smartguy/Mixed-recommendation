@@ -304,31 +304,157 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   min-height: 520px;
   position: relative;
 }
-.report-viewer h1, .report-viewer h2, .report-viewer h3 { color: #2a1709; }
-.report-viewer h1 { font-size: 22px; margin-top: 0; }
-.report-viewer h2 {
+
+/* ===== 客户速览 hero 条 ===== */
+.report-hero {
+  margin-bottom: 28px;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 60%, var(--color-accent) 100%);
+  color: #ffffff;
+  box-shadow: var(--shadow-floating);
+  position: relative;
+  overflow: hidden;
+}
+.report-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 90% -10%, rgba(255, 255, 255, 0.18), transparent 40%),
+    radial-gradient(circle at 0% 110%, rgba(255, 255, 255, 0.08), transparent 50%);
+  pointer-events: none;
+}
+.report-hero > * { position: relative; z-index: 1; }
+.report-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.report-hero-title h1 {
+  margin: 0;
+  font-size: 22px;
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+}
+.report-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.report-hero-meta { font-size: 12px; opacity: 0.88; }
+.report-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.hero-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  backdrop-filter: blur(2px);
+}
+.hero-cell-tag { background: transparent; border: none; padding: 4px 0; }
+.hero-cell-icon { font-size: 20px; opacity: 0.92; }
+.hero-cell-label { font-size: 11px; opacity: 0.78; margin-bottom: 2px; }
+.hero-cell-value { font-size: 16px; font-weight: 600; line-height: 1.15; }
+.hero-cell-value.mono { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 14px; }
+
+/* ===== Markdown 区块 + 美化表格 ===== */
+.report-markdown { font-size: 14px; line-height: 1.8; color: var(--color-text); }
+.report-viewer h1, .report-viewer h2, .report-viewer h3, .report-markdown h1, .report-markdown h2, .report-markdown h3 { color: #2a1709; }
+.report-markdown h1 { font-size: 22px; margin: 24px 0 12px; }
+.report-markdown h2,
+.report-section-title {
   font-size: 18px;
   border-left: 4px solid var(--color-primary);
-  padding-left: 10px;
-  margin-top: 24px;
+  padding-left: 12px;
+  margin: 28px 0 14px;
+  color: var(--color-primary-dark);
 }
-.report-viewer h3 { font-size: 15px; margin-top: 18px; }
-.report-viewer table {
-  width: 100%;
-  border-collapse: collapse;
+.report-markdown h3 { font-size: 15px; margin: 18px 0 10px; color: var(--color-text); }
+.report-markdown blockquote {
   margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--color-warm-soft);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 8px 8px 0;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
-.report-viewer th, .report-viewer td {
+.report-markdown table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 14px 0;
+  font-size: 13px;
   border: 1px solid var(--color-border);
-  padding: 8px 10px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(168, 93, 59, 0.04);
+}
+.report-markdown th, .report-markdown td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 10px 12px;
   text-align: right;
+  vertical-align: middle;
 }
-.report-viewer th:first-child, .report-viewer td:first-child { text-align: left; }
-.report-viewer thead th {
-  background: var(--color-warm-soft);
+.report-markdown th:first-child, .report-markdown td:first-child { text-align: left; }
+.report-markdown tr:last-child td { border-bottom: none; }
+.report-markdown tbody tr:nth-child(even) { background: rgba(250, 243, 234, 0.45); }
+.report-markdown tbody tr:hover { background: var(--color-warm-soft); }
+.report-markdown thead th {
+  background: linear-gradient(180deg, var(--color-warm-soft) 0%, #ffffff 100%);
   font-weight: 600;
+  border-bottom: 2px solid var(--color-border-strong);
+  color: var(--color-primary-dark);
 }
+.report-markdown strong { color: var(--color-primary-dark); }
+.report-markdown ul, .report-markdown ol { padding-left: 22px; }
+.report-markdown li { margin: 4px 0; }
+.report-markdown hr {
+  border: none;
+  border-top: 1px dashed var(--color-border-strong);
+  margin: 24px 0;
+}
+
+/* ===== 双图卡片布局 ===== */
+.report-charts-2up {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+@media (max-width: 880px) { .report-charts-2up { grid-template-columns: 1fr; } }
+
+.report-chart-card {
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-warm-cream) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 2px 8px rgba(168, 93, 59, 0.05);
+}
+.report-chart-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  margin-bottom: 6px;
+  text-align: center;
+}
+.report-chart-card-wide { padding: 14px 16px; }
 .report-disclaimer {
   position: sticky;
   bottom: 0;
@@ -523,12 +649,16 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   flex-wrap: wrap;
   overscroll-behavior: contain;
 }
-/* 华为 Mate 60 / Pura 70 风格手机框 */
+/* 华为 Mate 60 / Pura 70 风格手机框 —— 等比缩放，适配浏览器视口 */
 .mobile-bezel {
   flex: 0 0 auto;
-  width: 384px;
+  /* 关键：用 aspect-ratio 锁住 384:832 比例。当 max-height 比 height 更
+   * 严苛时，bezel 会按高度缩短并自动按比例减小宽度；不会出现"被裁掉一截"
+   * 或拉伸变形。所以浏览器越窄/越矮，手机预览越小，但永远是真机比例。 */
+  width: min(384px, 38vw);
+  height: auto;
+  aspect-ratio: 384 / 832;
   max-width: 100%;
-  height: 832px;
   max-height: calc(100vh - 180px);
   background: linear-gradient(160deg, #1c1c1f 0%, #2a2a2c 50%, #1c1c1f 100%);
   border-radius: 38px;
@@ -776,6 +906,39 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   font-size: 12px;
   color: var(--color-text-muted);
   margin-bottom: 6px;
+}
+.user-profile-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.user-profile-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--color-warm-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  text-align: left;
+}
+.user-profile-toggle:hover { background: var(--color-primary-soft); }
+.user-profile-text {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
 }
 .user-aside-hint {
   margin-top: auto;
