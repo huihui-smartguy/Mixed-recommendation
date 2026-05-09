@@ -396,17 +396,29 @@ async function streamChatScripted(prompt: string, rootDir: string, res: ServerRe
   res.end();
 }
 
+function profileSummary(p?: UserProfile): string | undefined {
+  if (!p) return undefined;
+  const tags = p.preferenceTags?.length ? p.preferenceTags.join('、') : '无';
+  return `${p.displayName} (${p.id}) · 风险等级 ${p.riskLevel} · 在管 ${(p.aum / 10000).toFixed(0)} 万 · ${p.age} 岁 · 偏好：${tags}`;
+}
+
 async function streamChatLLM(
   prompt: string,
+  profile: UserProfile | undefined,
   rootDir: string,
   res: ServerResponse
 ): Promise<boolean> {
   const config = readLLMConfig();
   if (!config) return false;
 
-  // 取候选池作为 prompt 上下文
-  const candidates = await fetchOnerec(process.env.DEFAULT_USER_ID ?? 'CUST-A', rootDir);
-  const userPrompt = buildChatUserPrompt({ userPrompt: prompt, candidates });
+  // 用画像 ID 拿个性化候选池；缺画像走 DEFAULT_USER_ID 兜底
+  const userId = profile?.id ?? process.env.DEFAULT_USER_ID ?? 'CUST-A';
+  const candidates = await fetchOnerec(userId, rootDir);
+  const userPrompt = buildChatUserPrompt({
+    userPrompt: prompt,
+    candidates,
+    profileSummary: profileSummary(profile)
+  });
   sseHeaders(res);
 
   const ctrl = new AbortController();
@@ -548,9 +560,12 @@ export function prodBackendPlugin(): Plugin {
           }
           if (req.method === 'POST' && url.startsWith('/api/v1/chat/completions')) {
             const body = await readBody(req);
-            const parsed = body ? (JSON.parse(body) as { prompt?: string }) : {};
+            const parsed = body
+              ? (JSON.parse(body) as { prompt?: string; profile?: UserProfile })
+              : {};
             const prompt = parsed.prompt ?? '';
-            const ok = await streamChatLLM(prompt, rootDir, res);
+            const profile = parsed.profile;
+            const ok = await streamChatLLM(prompt, profile, rootDir, res);
             if (!ok) {
               await streamChatScripted(prompt, rootDir, res);
             }

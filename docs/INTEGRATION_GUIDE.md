@@ -1,4 +1,4 @@
-# DeepRec+ 接入指南（生成式 + 交互式）
+# DeepRec 接入指南（生成式 + 交互式）
 
 > 面向后端 / 算法 / 联调同学。把"前端能输入什么 → BFF 怎么调 onerec → 怎么喂给 LLM → 怎么返回前端"一次说清，避免反复对齐字段。
 
@@ -265,7 +265,19 @@ ReportViewer.tsx → StepLoading 把 thinkingTrail 渲染成"真实后端调用�
 
 | 字段 | 类型 | 必填 | 来源 | 说明 |
 |---|---|---|---|---|
-| `prompt` | string | ✅ | `ChatWorkspace` 的 `<textarea>` 或 prompt chip | 用户原始问题；BFF 在 PII 脱敏 + 违禁词检查后再下发 LLM |
+| `prompt` | string | ✅ | `ChatWorkspace` 的 `<textarea>` / prompt chip / 浮动机器人输入 | 用户原始问题；BFF 在 PII 脱敏 + 违禁词检查后再下发 LLM |
+| `profile` | object | ❌ | `UserProfileCard` 当前选中的客户 | 客户画像；用于 onerec 个性化 + LLM 风险匹配，详见 §5.3 |
+
+`profile` 对象字段（与 `UserProfile` 类型一致，`src/types/index.ts`）：
+
+| 字段 | 类型 | 用途 |
+|---|---|---|
+| `id` | string | onerec sidecar 的 `userId` 查询参数 |
+| `displayName` | string | 拼进 prompt 的 `【客户画像】` 块，让 LLM 称呼客户 |
+| `riskLevel` | `'C1'\|'C2'\|'C3'\|'C4'\|'C5'` | 决定 LLM 写作语气、能否推荐高弹性资产 |
+| `aum` | number (单位：元) | 资产规模影响配置颗粒度 |
+| `age` | number | 影响生命周期建议（年龄越大越偏稳健） |
+| `preferenceTags` | string[] | 软偏好；LLM 会显式呼应这些标签 |
 
 请求示例：
 
@@ -275,11 +287,116 @@ Content-Type: application/json
 Accept: text/event-stream
 
 {
-  "prompt": "稳健型客户下半年怎么配？"
+  "prompt": "下半年怎么配？",
+  "profile": {
+    "id": "CUST-A",
+    "displayName": "客户A · 稳健型",
+    "riskLevel": "C3",
+    "aum": 1280000,
+    "age": 42,
+    "preferenceTags": ["稳健", "权益偏低", "债券为主"]
+  }
 }
 ```
 
-### 5.2 输入入口
+### 5.2 客户画像（UserProfileCard）↔ 后端的对接
+
+> **新增（V1.4）**：交互式工作区左侧 `UserProfileCard` 现在是上下文锚点。选中客户后，画像会随每条提问自动下发，**整条链路真实个性化**。
+
+#### 状态来源
+
+```
+src/stores/useProfileStore.ts
+  ├─ profiles (List<UserProfile>)        从 GET /api/v1/users/profiles 拉
+  ├─ activeId (string)                   localStorage 持久化（key: deeprec-active-profile-id）
+  └─ getActive()                         衍生：当前活跃画像对象
+```
+
+`UserProfileCard` 顶部下拉切换会更新 `activeId`，下次发送即生效。
+
+#### 调用流（前端）
+
+```
+UserProfileCard ─── setActive(id) ───▶ useProfileStore.activeId
+                                              │
+ChatWorkspace.send(text)                      │
+  └─ useChatStore.send(text)                  │
+       └─ useProfileStore.getState()          │
+            .getActive() ◀──────────────────  │
+       └─ chatStream(prompt, signal, profile)
+            └─ POST /api/v1/chat/completions  body: { prompt, profile }
+```
+
+#### 调用流（后端）
+
+`src/server/prodMiddleware.ts`：
+
+```ts
+// 路由层读 body
+const { prompt, profile } = JSON.parse(body);
+
+// 1️⃣ 用 profile.id 拿个性化候选池
+const userId = profile?.id ?? process.env.DEFAULT_USER_ID ?? 'CUST-A';
+const candidates = await fetchOnerec(userId, rootDir);
+//        ↓
+//        HTTP GET ${ONEREC_BASE_URL}/products?userId=${userId}&topK=8
+//        Python sidecar 用同一个 userId 调真实 onerec 模型
+
+// 2️⃣ 把画像字段拼进 LLM prompt
+const summary = profile
+  ? `${profile.displayName} (${profile.id}) · 风险等级 ${profile.riskLevel}
+     · 在管 ${(profile.aum/10000).toFixed(0)} 万 · ${profile.age} 岁
+     · 偏好：${profile.preferenceTags.join('、')}`
+  : undefined;
+
+const userPrompt = buildChatUserPrompt({
+  userPrompt: prompt,
+  candidates,
+  profileSummary: summary
+});
+
+// 3️⃣ 流式调 LLM
+streamLLM(config, [{role:'system', content: SYSTEM_PROMPT}, {role:'user', content: userPrompt}], ...)
+```
+
+#### Prompt 注入位置
+
+`src/llm/prompts/chat.ts::buildChatUserPrompt()` 拼出：
+
+```
+【客户问题】
+下半年怎么配？
+
+【客户画像】
+客户A · 稳健型 (CUST-A) · 风险等级 C3 · 在管 128 万 · 42 岁
+                · 偏好：稳健、权益偏低、债券为主
+
+【onerec 候选池（请只在此池中挑选产品）】
+- 003376 | 汇添富中债3-5年政策金融债 | ...
+- 180202 | 南方红利低波50ETF | ...
+- ...
+```
+
+LLM 看到 `C3` 自动收敛到稳健型推荐；看到偏好里的 "债券为主" 会显式呼应；
+看到 `aum=128 万` 会用合适的颗粒度（如"建议从 30 万开始分批"而非"3 万")。
+
+#### 后端拓展指南
+
+如果你们公司的 onerec 还需要更多画像字段（例如行业、持仓历史、地区），按以下顺序扩展：
+
+1. **前端 `UserProfile` 类型** (`src/types/index.ts`) 加字段
+2. **`UserProfileCard.tsx`** 渲染该字段
+3. **后端 sidecar `app/schemas.py`** 接收（如果需要让 onerec 用到）
+4. **`prodMiddleware.ts::profileSummary()`** 把字段拼进 prompt
+5. **`useProfileStore`** 不需要改，因为它直接转发整个 profile 对象
+
+#### 保密 / 合规建议
+
+* `profile` 不含手机号 / 身份证 / 真实姓名等强 PII。`displayName` 在生产上应是脱敏后的称呼（如"张总"而非全名）。
+* 如客户拒绝个性化，前端调 `useProfileStore.setActive(undefined)` 即可——后端检测到 `profile` 缺失会自动走 `DEFAULT_USER_ID` 兜底召回，不会泄漏。
+* 真实 onerec sidecar 应启用 `ONEREC_API_TOKEN`，避免内网横向访问伪造 userId。
+
+### 5.3 输入入口
 
 `ChatWorkspace.tsx`（`src/components/interactive/`）—— 同时承担三种入口：
 

@@ -65,7 +65,7 @@ export default function App() {
             <footer className="muted" style={{ marginTop: 24, lineHeight: 1.7 }}>
               <div>⚠ {DISCLAIMER}</div>
               <div>
-                合规中心 · 投诉与建议 · 隐私政策 · ©{new Date().getFullYear()} DeepRec+
+                合规中心 · 投诉与建议 · 隐私政策 · ©{new Date().getFullYear()} DeepRec
               </div>
             </footer>
           </main>

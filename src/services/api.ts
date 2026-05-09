@@ -122,10 +122,14 @@ export type ChatStreamEvent =
 /**
  * POST /api/v1/chat/completions ，按 SSE 协议消费 chunk。
  * 与设计文档 §3.3 完全一致：data 行内 JSON 含 type 字段。
+ *
+ * profile：可选。前端 UserProfileCard 选定的客户档案，会随每条提问下发，
+ * BFF 用 profile.id 调 onerec 拿个性化召回，并把画像字段注入 LLM prompt。
  */
 export async function* chatStream(
   prompt: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  profile?: UserProfile
 ): AsyncGenerator<ChatChunk> {
   const res = await fetch(`${API_BASE}/chat/completions`, {
     method: 'POST',
@@ -133,7 +137,7 @@ export async function* chatStream(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream'
     },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, profile }),
     signal
   });
   if (!res.ok) throw new ApiError(res.status, `chat stream failed: ${res.status}`);

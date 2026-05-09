@@ -334,7 +334,13 @@ export function mockBackendPlugin(): Plugin {
           }
           if (req.method === 'POST' && url.startsWith('/api/v1/chat/completions')) {
             const body = await readBody(req);
-            const parsed = body ? (JSON.parse(body) as { prompt?: string }) : {};
+            const parsed = body
+              ? (JSON.parse(body) as { prompt?: string; profile?: UserProfile })
+              : {};
+            // mock 模式下 profile 仅作为打印调试存在；真实个性化由 prodMiddleware 处理
+            if (parsed.profile?.id) {
+              console.log(`[devMock] chat with profile=${parsed.profile.id}`);
+            }
             return streamChatResponse(parsed.prompt ?? '', res);
           }
           return json(res, 404, { error: 'mock route not found', url });

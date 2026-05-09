@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ChatChunk, ChatMessage, Product } from '@/types';
 import { chatStream } from '@/services/api';
 import { checkBannedWords, maskPII } from '@/utils/compliance';
+import { useProfileStore } from './useProfileStore';
 
 interface ChatStoreState {
   messages: ChatMessage[];
@@ -117,7 +118,8 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     };
 
     try {
-      for await (const evt of chatStream(masked, ctrl.signal)) {
+      const activeProfile = useProfileStore.getState().getActive();
+      for await (const evt of chatStream(masked, ctrl.signal, activeProfile)) {
         if (evt.type === 'thinking') {
           appendChunk({ id: uid(), type: 'thinking', content: evt.content });
         } else if (evt.type === 'text') {
