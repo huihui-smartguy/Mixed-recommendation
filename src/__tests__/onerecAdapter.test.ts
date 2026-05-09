@@ -27,10 +27,49 @@ describe('onerecAdapter · toFiniteNumber', () => {
 });
 
 describe('onerecAdapter · normalizeOnerecResponse', () => {
-  it('returns [] on non-array input', () => {
+  it('returns [] on non-array / non-object-with-known-keys input', () => {
     expect(normalizeOnerecResponse(null)).toEqual([]);
     expect(normalizeOnerecResponse({})).toEqual([]);
     expect(normalizeOnerecResponse('xx')).toEqual([]);
+  });
+
+  it('parses real onerec recommendations_by_type shape', () => {
+    const raw = {
+      uid: '1000000054',
+      user_profile: '客户风险等级R2，金融资产总额108.70万元...',
+      recommendations_by_type: {
+        基金: {
+          recommended_pids: ['P00252', 'P00301'],
+          recommended_texts: [
+            'FOF - 基金类产品，风险等级为R3，产品名称为ESG责任号。',
+            'QDII-基金类产品，风险等级为R3，产品名称为博时全球精选。历史收益水平(%)8.2。'
+          ],
+          similarity: [0.18, 0.31]
+        },
+        理财: {
+          recommended_pids: ['P00647'],
+          recommended_texts: [
+            '现金管理类 - 理财类产品，风险等级为R2，产品名称为可转债优选号。'
+          ],
+          similarity: [0.11]
+        }
+      }
+    };
+    const out = normalizeOnerecResponse(raw);
+    expect(out.map((p) => p.code).sort()).toEqual(['P00252', 'P00301', 'P00647']);
+    const fof = out.find((p) => p.code === 'P00252')!;
+    expect(fof.name).toContain('ESG责任号');
+    expect(fof.category).toContain('基金');
+    expect(fof.category).toContain('R3');
+    const qdii = out.find((p) => p.code === 'P00301')!;
+    expect(qdii.return1y).toBeCloseTo(8.2, 1);
+  });
+
+  it('accepts items wrapped in { items: [...] } envelope', () => {
+    const out = normalizeOnerecResponse({
+      items: [{ code: 'X1', name: '兼容写法' }]
+    });
+    expect(out.map((p) => p.code)).toEqual(['X1']);
   });
 
   it('drops items missing required code or name', () => {

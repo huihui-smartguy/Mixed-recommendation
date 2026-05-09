@@ -1,12 +1,15 @@
 import { useRef } from 'react';
-import { Button, Empty, Space, Tag, App } from 'antd';
+import { Button, Empty, Space, App } from 'antd';
 import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ReportPayload, ReportStage, ReportThinkingEntry } from '@/types';
 import StepLoading from './StepLoading';
 import AllocationPieChart from './AllocationPieChart';
+import AllocationBarChart from './AllocationBarChart';
 import BacktestLineChart from './BacktestLineChart';
+import ClientHeroStrip from './ClientHeroStrip';
+import { useProfileStore } from '@/stores/useProfileStore';
 import { DISCLAIMER } from '@/utils/compliance';
 
 interface ReportViewerProps {
@@ -26,6 +29,11 @@ export default function ReportViewer({
 }: ReportViewerProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const { message: msg } = App.useApp();
+
+  // 取当前活跃画像，用于在"客户速览"hero 条里展示真实姓名 / uid / 风险等级
+  const activeProfile = useProfileStore((s) =>
+    s.profiles.find((p) => p.id === s.activeId)
+  );
 
   if (stage === 'idle') {
     return (
@@ -81,7 +89,7 @@ export default function ReportViewer({
 
   return (
     <div className="report-viewer" ref={printRef}>
-      <Space style={{ float: 'right' }}>
+      <Space style={{ float: 'right', marginBottom: 8 }}>
         <Button icon={<DownloadOutlined />} onClick={exportPdf}>
           导出 PDF
         </Button>
@@ -90,22 +98,37 @@ export default function ReportViewer({
         </Button>
       </Space>
 
-      <Tag color="blue">{payload.taskId}</Tag>
-      <span className="muted" style={{ marginLeft: 8 }}>
-        {new Date(payload.generatedAt).toLocaleString('zh-CN')}
-      </span>
-
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{payload.markdown}</ReactMarkdown>
-
-      <h2>七、大类资产权重可视化</h2>
-      <AllocationPieChart allocations={payload.allocations} />
-
-      <h2>八、近三年回测对比</h2>
-      <BacktestLineChart
-        dates={payload.backtest.dates}
-        portfolio={payload.backtest.portfolio}
-        benchmark={payload.backtest.benchmark}
+      <ClientHeroStrip
+        payload={payload}
+        customerName={activeProfile?.name ?? activeProfile?.displayName}
+        uid={activeProfile?.uid ?? activeProfile?.id}
+        riskLevel={activeProfile?.riskLevel}
       />
+
+      <div className="report-markdown">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{payload.markdown}</ReactMarkdown>
+      </div>
+
+      <h2 className="report-section-title">七、大类资产权重可视化</h2>
+      <div className="report-charts-2up">
+        <div className="report-chart-card">
+          <div className="report-chart-card-title">权重比例（环图）</div>
+          <AllocationPieChart allocations={payload.allocations} />
+        </div>
+        <div className="report-chart-card">
+          <div className="report-chart-card-title">权重排序（条形图）</div>
+          <AllocationBarChart allocations={payload.allocations} title="" />
+        </div>
+      </div>
+
+      <h2 className="report-section-title">八、近三年回测对比</h2>
+      <div className="report-chart-card report-chart-card-wide">
+        <BacktestLineChart
+          dates={payload.backtest.dates}
+          portfolio={payload.backtest.portfolio}
+          benchmark={payload.backtest.benchmark}
+        />
+      </div>
 
       <div className="report-disclaimer">⚠ {DISCLAIMER}</div>
     </div>

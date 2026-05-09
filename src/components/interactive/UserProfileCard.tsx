@@ -1,6 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Select, Space, Tag, Tooltip } from 'antd';
-import { CloudUploadOutlined, IdcardOutlined } from '@ant-design/icons';
+import {
+  CloudUploadOutlined,
+  IdcardOutlined,
+  CaretRightOutlined
+} from '@ant-design/icons';
 import { useProfileStore } from '@/stores/useProfileStore';
 
 const RISK_COLORS: Record<string, string> = {
@@ -12,15 +16,19 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 /**
- * 客户档案卡 —— 交互式推荐工作区的"上下文锚点"。
+ * 客户档案卡 —— 与 onerec 协议字段一一对齐：
+ *   · uid           客户唯一 ID
+ *   · name          客户真实姓名（前端展示用）
+ *   · user_profile  onerec 输入端那段画像描述串（折叠展开）
  *
- * 行为：
- *  · 选择客户后，画像信息会**随每条 chat 提问**通过 POST 体下发给后端
- *  · 后端用 profile.id 调 onerec 拿个性化候选池
- *  · 后端把 profile.{riskLevel, age, aum, preferenceTags} 拼进 LLM prompt
+ * 选中后画像会随每条 chat 提问下发后端：
+ *   · profile.uid → onerec sidecar 召回个性化候选池
+ *   · profile.user_profile / riskLevel / aum / age / preferenceTags → 注入 LLM prompt
  */
 export default function UserProfileCard() {
   const { profiles, activeId, load, setActive } = useProfileStore();
+  const [profileExpanded, setProfileExpanded] = useState(false);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -41,19 +49,19 @@ export default function UserProfileCard() {
           onChange={setActive}
           options={profiles.map((p) => ({
             value: p.id,
-            label: `${p.displayName} · ${p.riskLevel}`
+            label: `${p.name ?? p.displayName} · ${p.riskLevel}`
           }))}
         />
 
         {active ? (
           <>
             <div className="user-avatar-row">
-              <div className="user-avatar">{active.displayName.replace(/[·\s].*/, '').slice(0, 2)}</div>
-              <div style={{ minWidth: 0 }}>
-                <div className="user-name" title={active.displayName}>
-                  {active.displayName}
+              <div className="user-avatar">{(active.name ?? active.displayName).slice(0, 1)}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="user-name" title={active.name ?? active.displayName}>
+                  {active.name ?? active.displayName}
                 </div>
-                <Space size={4}>
+                <Space size={4} wrap>
                   <Tag color={RISK_COLORS[active.riskLevel] ?? 'default'} bordered={false}>
                     {active.riskLevel}
                   </Tag>
@@ -63,8 +71,8 @@ export default function UserProfileCard() {
             </div>
 
             <div className="user-stat">
-              <label>客户 ID</label>
-              <code>{active.id}</code>
+              <label>UID</label>
+              <code title="onerec 协议 uid">{active.uid ?? active.id}</code>
             </div>
             <div className="user-stat">
               <label>在管资产</label>
@@ -86,16 +94,36 @@ export default function UserProfileCard() {
               </Space>
             </div>
 
+            {active.user_profile && (
+              <div className="user-profile-block">
+                <button
+                  type="button"
+                  className="user-profile-toggle"
+                  onClick={() => setProfileExpanded((v) => !v)}
+                  aria-expanded={profileExpanded}
+                >
+                  <CaretRightOutlined rotate={profileExpanded ? 90 : 0} />
+                  <span>onerec user_profile</span>
+                  <span className="muted" style={{ marginLeft: 'auto' }}>
+                    {profileExpanded ? '收起' : '展开'}
+                  </span>
+                </button>
+                {profileExpanded && (
+                  <div className="user-profile-text">{active.user_profile}</div>
+                )}
+              </div>
+            )}
+
             <Tooltip title="详见 docs/INTEGRATION_GUIDE.md「客户画像 ↔ 后端」章节">
               <div className="user-aside-hint">
                 <CloudUploadOutlined />
                 <div>
-                  以上画像信息会随每条提问发送给后端：
+                  以上画像会随每条提问发送后端：
                   <br />
-                  <code>profile.id</code> → onerec 个性化召回
+                  <code>uid</code> → onerec 个性化召回
                   <br />
-                  <code>riskLevel / aum / age / preferenceTags</code>
-                  → 注入 LLM prompt 做风险匹配
+                  <code>user_profile / riskLevel / aum / age / 偏好</code>
+                  → 注入 LLM prompt
                 </div>
               </div>
             </Tooltip>

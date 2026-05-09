@@ -1,8 +1,5 @@
 """
-脚本化兜底召回池 —— 方便在真实 onerec 模型未接入前完整跑通端到端联调。
-
-字段命名与 mock-data/onerec/products.json 对齐，复制了同一份数据，
-让 sidecar 可以独立运行（不依赖前端项目的 mock 文件）。
+脚本化兜底召回池 —— 与 docs/onerec_example.md 形态对齐。
 
 接入真实 onerec 后，本模块可以删除，或保留作为 health check 兜底。
 """
@@ -11,146 +8,168 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-POOL: Dict[str, List[dict]] = {
-    "CUST-A": [
-        {
-            "product_code": "003376",
-            "product_name": "汇添富中债3-5年政策金融债",
-            "type": "中长期纯债",
-            "net_value": 1.1428,
-            "change_pct": 0.04,
-            "return_1y": 4.7,
-            "return_3y": 14.9,
-            "max_drawdown": -1.8,
-            "sharpe": 1.32,
-            "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
-            "recommendation": "提供组合压舱石作用，久期适中、违约风险低",
-        },
-        {
-            "product_code": "180202",
-            "product_name": "南方红利低波50ETF",
-            "type": "红利策略",
-            "net_value": 1.4218,
-            "change_pct": 0.36,
-            "return_1y": 8.6,
-            "return_3y": 28.1,
-            "max_drawdown": -12.4,
-            "sharpe": 0.78,
-            "sparkline": [1.0, 1.02, 1.04, 1.03, 1.06, 1.09, 1.11, 1.10, 1.13, 1.16, 1.18, 1.21],
-            "recommendation": "高股息、低波动，适配稳健客户底仓",
-        },
-        {
-            "product_code": "513100",
-            "product_name": "国泰纳指QDII",
-            "type": "海外权益",
-            "net_value": 2.6310,
-            "change_pct": 0.92,
-            "return_1y": 24.3,
-            "return_3y": 62.5,
-            "max_drawdown": -22.1,
-            "sharpe": 0.92,
-            "sparkline": [1.0, 1.05, 1.12, 1.18, 1.25, 1.20, 1.30, 1.40, 1.48, 1.55, 1.60, 1.66],
-            "recommendation": "AI 主线行情仍具有上行弹性，注意汇率与估值",
-        },
-        {
-            "product_code": "518880",
-            "product_name": "华安黄金ETF",
-            "type": "商品",
-            "net_value": 5.0210,
-            "change_pct": 1.45,
-            "return_1y": 18.4,
-            "return_3y": 41.2,
-            "max_drawdown": -8.6,
-            "sharpe": 0.86,
-            "sparkline": [1.0, 1.03, 1.04, 1.06, 1.10, 1.13, 1.16, 1.18, 1.22, 1.25, 1.28, 1.30],
-            "recommendation": "对冲组合的地缘与通胀风险",
-        },
-    ],
-    "CUST-B": [
-        {
-            "product_code": "180202",
-            "product_name": "南方红利低波50ETF",
-            "type": "红利策略",
-            "net_value": 1.4218,
-            "change_pct": 0.36,
-            "return_1y": 8.6,
-            "return_3y": 28.1,
-            "max_drawdown": -12.4,
-            "sharpe": 0.78,
-            "sparkline": [1.0, 1.02, 1.04, 1.03, 1.06, 1.09, 1.11, 1.10, 1.13, 1.16, 1.18, 1.21],
-            "recommendation": "高股息、低波动，匹配中等风险",
-        },
-        {
-            "product_code": "513100",
-            "product_name": "国泰纳指QDII",
-            "type": "海外权益",
-            "net_value": 2.6310,
-            "change_pct": 0.92,
-            "return_1y": 24.3,
-            "return_3y": 62.5,
-            "max_drawdown": -22.1,
-            "sharpe": 0.92,
-            "sparkline": [1.0, 1.05, 1.12, 1.18, 1.25, 1.20, 1.30, 1.40, 1.48, 1.55, 1.60, 1.66],
-            "recommendation": "组合权益部分的成长引擎",
-        },
-        {
-            "product_code": "519983",
-            "product_name": "长信稳益混合A",
-            "type": "稳健混合",
-            "net_value": 1.5712,
-            "change_pct": 0.18,
-            "return_1y": 6.2,
-            "return_3y": 19.3,
-            "max_drawdown": -4.5,
-            "sharpe": 1.05,
-            "sparkline": [1.0, 1.01, 1.02, 1.04, 1.05, 1.07, 1.08, 1.09, 1.11, 1.13, 1.14, 1.16],
-            "recommendation": "股债平衡，回撤控制良好",
-        },
-    ],
-    "CUST-C": [
-        {
-            "product_code": "513100",
-            "product_name": "国泰纳指QDII",
-            "type": "海外权益",
-            "net_value": 2.6310,
-            "change_pct": 0.92,
-            "return_1y": 24.3,
-            "return_3y": 62.5,
-            "max_drawdown": -22.1,
-            "sharpe": 0.92,
-            "sparkline": [1.0, 1.05, 1.12, 1.18, 1.25, 1.20, 1.30, 1.40, 1.48, 1.55, 1.60, 1.66],
-            "recommendation": "权益主导客户的核心成长仓",
-        },
-        {
-            "product_code": "501018",
-            "product_name": "南方原油QDII",
-            "type": "海外商品",
-            "net_value": 1.1845,
-            "change_pct": -0.62,
-            "return_1y": 11.7,
-            "return_3y": 35.8,
-            "max_drawdown": -16.4,
-            "sharpe": 0.61,
-            "sparkline": [1.0, 1.04, 1.02, 1.05, 1.08, 1.06, 1.10, 1.12, 1.15, 1.13, 1.16, 1.18],
-            "recommendation": "通胀对冲与组合多元化",
-        },
-        {
-            "product_code": "159949",
-            "product_name": "华夏创业板50ETF",
-            "type": "成长股",
-            "net_value": 1.0312,
-            "change_pct": 1.21,
-            "return_1y": 19.8,
-            "return_3y": 45.6,
-            "max_drawdown": -28.7,
-            "sharpe": 0.68,
-            "sparkline": [1.0, 0.98, 1.04, 1.10, 1.06, 1.12, 1.16, 1.20, 1.24, 1.30, 1.35, 1.38],
-            "recommendation": "进取型客户的高弹性筹码",
-        },
-    ],
+from .schemas import OneRecResponse, RecommendationGroup
+
+# 三种风险偏好的 user_profile 描述（与前端 mock 对齐）
+_USER_PROFILES: Dict[str, str] = {
+    "1000000261": (
+        "客户风险等级R3，金融资产总额128.00万元。已投资资产128.00万元，"
+        "其中现金管理类12.60万元、固定收益类85.10万元、权益类4.60万元、"
+        "保障类25.70万元、另类0.00万元。累计总收益5.20万元。"
+        "该客户 年龄42，职业122.00，性别1.00，学历4.00，投资经验5-10年。"
+    ),
+    "1000000054": (
+        "客户风险等级R4，金融资产总额360.00万元。已投资资产360.00万元，"
+        "其中现金管理类38.40万元、固定收益类155.30万元、权益类108.20万元、"
+        "保障类42.30万元、另类15.80万元。累计总收益24.50万元。"
+        "该客户 年龄36，职业105.00，性别2.00，学历5.00，投资经验5-10年。"
+    ),
+    "1000000312": (
+        "客户风险等级R5，金融资产总额840.00万元。已投资资产840.00万元，"
+        "其中现金管理类21.50万元、固定收益类94.30万元、权益类520.80万元、"
+        "保障类68.40万元、另类135.00万元。累计总收益128.20万元。"
+        "该客户 年龄31，职业104.00，性别1.00，学历6.00，投资经验10年以上。"
+    ),
+}
+
+_HIST_PRODUCTS: Dict[str, str] = {
+    "1000000261": (
+        "<|sid_begin|><s_a_4200><s_b_600><s_c_4580><|sid_end|>: 产品属于固收类，风险等级为R2，"
+        "客户投资 60000.00 元购买此产品。 持有市值 62000.00，总收益 2000.00。 "
+        "<|sid_begin|><s_a_2610><s_b_3184><s_c_1857><|sid_end|>: 产品属于现金管理类，风险等级为R1，"
+        "客户投资 20000.00 元购买此产品。 持有市值 20120.00，总收益 120.00。"
+    ),
+    "1000000054": (
+        "<|sid_begin|><s_a_1661><s_b_2479><s_c_1254><|sid_end|>: 产品属于权益类，风险等级为R3，"
+        "客户投资 80000.00 元购买此产品。 持有市值 92000.00，总收益 12000.00。"
+    ),
+    "1000000312": (
+        "<|sid_begin|><s_a_1661><s_b_185><s_c_8191><|sid_end|>: 产品属于权益类，风险等级为R5，"
+        "客户投资 200000.00 元购买此产品。 持有市值 256000.00，总收益 56000.00。 "
+        "<|sid_begin|><s_a_4200><s_b_7077><s_c_4195><|sid_end|>: 产品属于另类，风险等级为R4，"
+        "客户投资 100000.00 元购买此产品。 持有市值 118000.00，总收益 18000.00。"
+    ),
 }
 
 
+def _funds_for(uid: str) -> RecommendationGroup:
+    if uid == "1000000054":
+        return RecommendationGroup(
+            recommended_pids=["P00601", "P00708"],
+            recommended_texts=[
+                "FOF - 基金类产品，风险等级为R3，产品名称为博时恒泽稳健号。历史收益水平(%)2.08。"
+                "产品说明：股债搭配的偏债混合 FOF，注重回撤控制。",
+                "权益型 - 基金类产品，风险等级为R3，产品名称为广发聚丰A号。历史收益水平(%)20.74。"
+                "产品说明：聚焦周期赛道的偏股混合，弹性较高。",
+            ],
+            recommendation_count=2,
+            similarity=[0.0023, 0.0017],
+        )
+    if uid == "1000000312":
+        return RecommendationGroup(
+            recommended_pids=["P00921", "P00712"],
+            recommended_texts=[
+                "QDII-基金类产品，风险等级为R5，产品名称为国泰纳斯达克100ETF号。历史收益水平(%)28.6。"
+                "产品说明：跟踪纳斯达克100指数，配置全球科技龙头。",
+                "权益型 - 基金类产品，风险等级为R4，产品名称为泉果消费机遇A号。历史收益水平(%)6.84。"
+                "产品说明：聚焦消费赛道的偏股混合。",
+            ],
+            recommendation_count=2,
+            similarity=[0.0019, 0.0014],
+        )
+    # CUST-A / 默认
+    return RecommendationGroup(
+        recommended_pids=["P00301"],
+        recommended_texts=[
+            "FOF - 基金类产品，风险等级为R3，产品名称为博时恒泽号。历史收益水平(%)2.08。"
+            "产品说明：股债搭配的偏债混合 FOF，注重回撤控制，适合稳健型投资者。"
+        ],
+        recommendation_count=1,
+        similarity=[0.001855],
+    )
+
+
+def _wealth_for(uid: str) -> RecommendationGroup:
+    if uid == "1000000054":
+        return RecommendationGroup(
+            recommended_pids=["P00833"],
+            recommended_texts=[
+                "现金管理类 - 理财类产品，风险等级为R2，产品名称为悦丰利增盈号。历史收益水平(%)2.55。"
+                "产品说明：14 个月封闭，业绩基准 2.40%-2.70%，稳健增值。"
+            ],
+            recommendation_count=1,
+            similarity=[0.0011],
+        )
+    if uid == "1000000312":
+        return RecommendationGroup(
+            recommended_pids=[],
+            recommended_texts=[],
+            recommendation_count=0,
+            similarity=[],
+        )
+    # 默认
+    return RecommendationGroup(
+        recommended_pids=["P00647"],
+        recommended_texts=[
+            "现金管理类 - 理财类产品，风险等级为R2，产品名称为可转债优选号。历史收益水平(%)2.92。"
+            "产品说明：固定收益类理财产品，R1-R2 风险，适合保守与稳健型投资者。"
+        ],
+        recommendation_count=1,
+        similarity=[0.001092],
+    )
+
+
+def build_mock_response(uid: str, top_k: int = 8) -> OneRecResponse:
+    """
+    把 uid 映射到对照样例，返回与 docs/onerec_example.md 完全一致的 OneRecResponse 形态。
+    top_k 仅用于截断，每个分组最多保留前 top_k 条推荐。
+    """
+    funds = _funds_for(uid)
+    wealth = _wealth_for(uid)
+
+    def _truncate(g: RecommendationGroup) -> RecommendationGroup:
+        return RecommendationGroup(
+            raw_pid=g.raw_pid[:top_k],
+            raw_texts=g.raw_texts[:top_k],
+            sid_input=g.sid_input[:top_k],
+            sid_matched=g.sid_matched[:top_k],
+            recommended_pids=g.recommended_pids[:top_k],
+            recommended_texts=g.recommended_texts[:top_k],
+            recommendation_count=min(g.recommendation_count, top_k),
+            similarity=g.similarity[:top_k],
+        )
+
+    profile = _USER_PROFILES.get(uid) or _USER_PROFILES["1000000261"]
+    hist = _HIST_PRODUCTS.get(uid) or _HIST_PRODUCTS["1000000261"]
+
+    return OneRecResponse(
+        uid=uid,
+        user_profile=profile,
+        hist_products=hist,
+        recommendations_by_type={
+            "基金": _truncate(funds),
+            "理财": _truncate(wealth),
+        },
+    )
+
+
+# --- 兼容旧调用 ---
 def get_pool(user_id: str) -> List[dict]:
-    """按 userId 命中候选池；命中失败回退到 CUST-A 默认池。"""
-    return POOL.get(user_id) or POOL.get("CUST-A") or []
+    """旧 API：把新形态展平成扁平 dict 列表，仅供回归调试，不推荐继续使用。"""
+    resp = build_mock_response(user_id)
+    out: List[dict] = []
+    for big_cat, group in resp.recommendations_by_type.items():
+        for pid, text, sim in zip(
+            group.recommended_pids, group.recommended_texts, group.similarity or []
+        ):
+            out.append(
+                {
+                    "product_code": pid,
+                    "product_name": text.split("产品名称为")[-1].split("。")[0]
+                    if "产品名称为" in text
+                    else pid,
+                    "type": big_cat,
+                    "recommendation": text,
+                }
+            )
+    return out

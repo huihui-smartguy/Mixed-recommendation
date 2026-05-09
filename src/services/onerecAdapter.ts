@@ -83,10 +83,65 @@ function normalizeSparkline(raw: unknown): number[] {
 }
 
 export function normalizeOnerecResponse(raw: unknown): Product[] {
-  if (!Array.isArray(raw)) return [];
+  // 1) 真实 onerec 返回形态：{ uid, user_profile, recommendations_by_type: { 基金: {...}, 理财: {...} } }
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>;
+    if (obj.recommendations_by_type && typeof obj.recommendations_by_type === 'object') {
+      return parseRecommendationsByType(obj.recommendations_by_type as Record<string, unknown>);
+    }
+    // 包了一层 items 的扁平形态（常见兼容写法）
+    if (Array.isArray(obj.items)) return normalizeFlatArray(obj.items);
+  }
+
+  // 2) 旧形态：直接是 Product-like 对象数组
+  if (Array.isArray(raw)) return normalizeFlatArray(raw);
+  return [];
+}
+
+/** 真实 onerec 形态：把 recommendations_by_type 解析成 Product[]。
+ *  recommended_pids[i] 与 recommended_texts[i] 一一对应；
+ *  texts 形如 "FOF - 基金类产品，风险等级为R3，产品名称为ESG责任号。历史收益水平(%)2.1。"
+ *  我们用正则把 name / 风险 / 历史收益 拽出来，category 用 hash key（基金/理财）+ 类型前缀。 */
+function parseRecommendationsByType(map: Record<string, unknown>): Product[] {
   const seen = new Set<string>();
   const out: Product[] = [];
+  for (const [bigCategory, group] of Object.entries(map)) {
+    if (!group || typeof group !== 'object') continue;
+    const g = group as Record<string, unknown>;
+    const pids = Array.isArray(g.recommended_pids) ? (g.recommended_pids as unknown[]) : [];
+    const texts = Array.isArray(g.recommended_texts) ? (g.recommended_texts as unknown[]) : [];
+    const sims = Array.isArray(g.similarity) ? (g.similarity as unknown[]) : [];
+    pids.forEach((pidRaw, i) => {
+      const code = typeof pidRaw === 'string' ? pidRaw.trim() : '';
+      if (!code || seen.has(code)) return;
+      const text = typeof texts[i] === 'string' ? (texts[i] as string).trim() : '';
+      const nameMatch = text.match(/产品名称为([^。]+)/);
+      const riskMatch = text.match(/风险等级为(R\d)/);
+      const yieldMatch = text.match(/历史收益水平\(%\)\s*([\d.]+)/);
+      const subCat = text.split(/[-,，]/)[0].trim() || bigCategory;
+      seen.add(code);
+      out.push({
+        code,
+        name: (nameMatch ? nameMatch[1].trim() : code).replace(/[（(][^）)]*[）)]/g, ''),
+        category: `${bigCategory} · ${subCat}${riskMatch ? ` · ${riskMatch[1]}` : ''}`,
+        netValue: 1,
+        changePct: 0,
+        return1y: yieldMatch ? toFiniteNumber(yieldMatch[1], 0) : 0,
+        return3y: 0,
+        maxDrawdown: 0,
+        sharpe: typeof sims[i] === 'number' ? (sims[i] as number) : 0,
+        sparkline: Array(SPARK_MIN).fill(1),
+        reason: text || `由 onerec ${bigCategory} 类型召回`
+      });
+    });
+  }
+  return out;
+}
 
+/** 旧"扁平 Product-like 数组"形态保持不变，多种字段命名都兼容。 */
+function normalizeFlatArray(raw: unknown[]): Product[] {
+  const seen = new Set<string>();
+  const out: Product[] = [];
   for (const item of raw as OnerecRawItem[]) {
     if (!item || typeof item !== 'object') continue;
     const code = pickString(item.code, item.product_code);
