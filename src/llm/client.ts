@@ -47,17 +47,23 @@ export function readLLMConfig(env: NodeJS.ProcessEnv = process.env): LLMConfig |
 
 /**
  * 流式调用 LLM，逐 token yield。出错时抛异常，由上层降级处理。
+ *
+ * onReasoning：可选回调。如果模型开启了"原生 reasoning 流"（Anthropic Extended
+ * Thinking 的 thinking_delta、DeepSeek R1 / OpenAI o1 的 reasoning_content），
+ * 这部分内容不会作为 token yield 给上层，而是单独通过 onReasoning 回流；
+ * 上层（prodMiddleware）拿来做思维链可视化。
  */
 export async function* streamLLM(
   config: LLMConfig,
   messages: LLMMessage[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onReasoning?: (text: string) => void
 ): AsyncGenerator<string> {
   if (config.provider === 'anthropic') {
-    yield* streamAnthropic(config, messages, signal);
+    yield* streamAnthropic(config, messages, signal, onReasoning);
     return;
   }
-  yield* streamOpenAICompatible(config, messages, signal);
+  yield* streamOpenAICompatible(config, messages, signal, onReasoning);
 }
 
 /* ----------------------- Anthropic Messages API ----------------------- */
@@ -65,7 +71,8 @@ export async function* streamLLM(
 async function* streamAnthropic(
   config: LLMConfig,
   messages: LLMMessage[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onReasoning?: (text: string) => void
 ): AsyncGenerator<string> {
   const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
   const turns = messages
@@ -93,9 +100,15 @@ async function* streamAnthropic(
     throw new Error(`anthropic ${res.status}: ${await res.text().catch(() => '')}`);
   }
   yield* parseLLMSSE(res, (data) => {
-    // anthropic content_block_delta { delta: { type: 'text_delta', text } }
-    if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') {
-      return data.delta.text as string;
+    if (data.type !== 'content_block_delta') return null;
+    // 文本 token
+    if (data.delta?.type === 'text_delta') {
+      return { content: data.delta.text as string };
+    }
+    // Anthropic Extended Thinking — 原生思维链
+    if (data.delta?.type === 'thinking_delta' && typeof data.delta.thinking === 'string') {
+      onReasoning?.(data.delta.thinking);
+      return null;
     }
     return null;
   });
@@ -106,7 +119,8 @@ async function* streamAnthropic(
 async function* streamOpenAICompatible(
   config: LLMConfig,
   messages: LLMMessage[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onReasoning?: (text: string) => void
 ): AsyncGenerator<string> {
   const res = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
@@ -127,9 +141,15 @@ async function* streamOpenAICompatible(
     throw new Error(`openai ${res.status}: ${await res.text().catch(() => '')}`);
   }
   yield* parseLLMSSE(res, (data) => {
-    // chat.completion.chunk { choices: [{ delta: { content } }] }
-    const delta = data.choices?.[0]?.delta?.content;
-    return typeof delta === 'string' ? delta : null;
+    const delta = data.choices?.[0]?.delta;
+    if (!delta) return null;
+    // DeepSeek R1 / OpenAI o1 等 reasoning 流字段
+    const reason = delta.reasoning_content ?? delta.reasoning;
+    if (typeof reason === 'string' && reason) {
+      onReasoning?.(reason);
+    }
+    if (typeof delta.content === 'string') return { content: delta.content };
+    return null;
   });
 }
 
@@ -137,7 +157,7 @@ async function* streamOpenAICompatible(
 
 async function* parseLLMSSE(
   res: Response,
-  pickToken: (data: any) => string | null
+  pickToken: (data: any) => string | { content: string } | null
 ): AsyncGenerator<string> {
   const reader = res.body!.getReader();
   const decoder = new TextDecoder('utf-8');
@@ -158,7 +178,9 @@ async function* parseLLMSSE(
           try {
             const data = JSON.parse(raw);
             const tok = pickToken(data);
-            if (tok) yield tok;
+            if (!tok) continue;
+            if (typeof tok === 'string') yield tok;
+            else if (tok.content) yield tok.content;
           } catch {
             /* swallow malformed chunk */
           }

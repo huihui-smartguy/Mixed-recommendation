@@ -45,8 +45,12 @@ export default function ChatWorkspace() {
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, viewMode]);
+    // 如果用户主动向上滚动了 80px 以上，不再强制吸底，让用户自由翻看历史
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distance < 200) {
+      el.scrollTo({ top: el.scrollHeight, behavior: streaming ? 'auto' : 'smooth' });
+    }
+  }, [messages, viewMode, streaming]);
 
   const submit = () => {
     if (!input.trim() || streaming) return;

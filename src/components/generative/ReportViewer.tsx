@@ -3,7 +3,7 @@ import { Button, Empty, Space, Tag, App } from 'antd';
 import { DownloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ReportPayload, ReportStage } from '@/types';
+import type { ReportPayload, ReportStage, ReportThinkingEntry } from '@/types';
 import StepLoading from './StepLoading';
 import AllocationPieChart from './AllocationPieChart';
 import BacktestLineChart from './BacktestLineChart';
@@ -14,9 +14,16 @@ interface ReportViewerProps {
   progress: number;
   message: string;
   payload?: ReportPayload;
+  thinkingTrail?: ReportThinkingEntry[];
 }
 
-export default function ReportViewer({ stage, progress, message, payload }: ReportViewerProps) {
+export default function ReportViewer({
+  stage,
+  progress,
+  message,
+  payload,
+  thinkingTrail
+}: ReportViewerProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const { message: msg } = App.useApp();
 
@@ -39,7 +46,12 @@ export default function ReportViewer({ stage, progress, message, payload }: Repo
     return (
       <div className="card card-pad">
         <h3 className="card-title">报告生成中</h3>
-        <StepLoading stage={stage} progress={progress} message={message} />
+        <StepLoading
+          stage={stage}
+          progress={progress}
+          message={message}
+          thinkingTrail={thinkingTrail}
+        />
       </div>
     );
   }

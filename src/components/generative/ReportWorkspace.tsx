@@ -27,6 +27,7 @@ export default function ReportWorkspace() {
           progress={task.progress}
           message={task.stageMessage}
           payload={task.payload}
+          thinkingTrail={task.thinkingTrail}
         />
       </div>
     </div>

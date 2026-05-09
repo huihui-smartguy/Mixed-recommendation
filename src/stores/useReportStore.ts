@@ -59,7 +59,8 @@ export const useReportStore = create<ReportStoreState>((set, get) => ({
               stageMessage: s.message,
               progress: s.progress,
               payload: s.payload ?? get().task.payload,
-              error: s.error
+              error: s.error,
+              thinkingTrail: s.thinkingTrail ?? get().task.thinkingTrail
             }
           });
         },

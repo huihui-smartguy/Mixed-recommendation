@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Tag } from 'antd';
-import { CloseOutlined, RobotOutlined, SendOutlined, MinusOutlined } from '@ant-design/icons';
+import { CloseOutlined, SendOutlined, MinusOutlined } from '@ant-design/icons';
 import { useChatStore } from '@/stores/useChatStore';
 import ChatBubble from '../interactive/ChatBubble';
+import RobotMascot from './RobotMascot';
 
 const QUICK_PROMPTS = [
   '稳健型客户怎么配？',
@@ -60,7 +61,7 @@ export default function FloatingRobot() {
           aria-label="打开 AI 助手"
           onClick={() => setState('mini')}
         >
-          <RobotOutlined />
+          <RobotMascot size={36} animated />
           <span className="robot-fab-pulse" aria-hidden />
         </button>
       )}
@@ -71,7 +72,7 @@ export default function FloatingRobot() {
             <CloseOutlined />
           </button>
           <div className="robot-mini-avatar">
-            <RobotOutlined />
+            <RobotMascot size={32} animated />
           </div>
           <div className="robot-mini-bubble">
             <div className="robot-mini-greet">
@@ -100,7 +101,10 @@ export default function FloatingRobot() {
         <div className="robot-panel">
           <div className="robot-panel-header">
             <div className="robot-panel-title">
-              <RobotOutlined /> 小颂 · AI 资产顾问
+              <span style={{ width: 22, height: 22, display: 'inline-flex' }}>
+                <RobotMascot size={22} />
+              </span>
+              小颂 · AI 资产顾问
             </div>
             <div className="robot-panel-actions">
               <button type="button" aria-label="最小化" onClick={() => setState('mini')}>

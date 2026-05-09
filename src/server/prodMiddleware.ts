@@ -3,7 +3,13 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { mockProfiles } from '../services/mockData';
-import type { Allocation, Product, ReportPayload, UserProfile } from '../types';
+import type {
+  Allocation,
+  Product,
+  ReportPayload,
+  ReportThinkingEntry,
+  UserProfile
+} from '../types';
 import { normalizeOnerecResponse } from '../services/onerecAdapter';
 import { SYSTEM_PROMPT } from '../llm/prompts/system';
 import { buildChatUserPrompt } from '../llm/prompts/chat';
@@ -46,6 +52,26 @@ interface ReportTaskInternal {
   error?: string;
   /** 后台异步生成 markdown 时的 promise，避免同一 task 触发多次 LLM */
   pending?: Promise<void>;
+  /** LLM 流式期间累积的真实思维链，前端轮询时下发 */
+  thinkingTrail: ReportThinkingEntry[];
+}
+
+/** 截断超长 reasoning 防止前端面板撑爆（同时合并相邻 reasoning 片段） */
+function pushTrail(
+  task: ReportTaskInternal,
+  entry: Omit<ReportThinkingEntry, 'at'>
+): void {
+  const trimmed = entry.text.trim();
+  if (!trimmed) return;
+  const last = task.thinkingTrail[task.thinkingTrail.length - 1];
+  // reasoning 流通常被切成很多碎片，与上一条同 kind 时合并
+  if (last && last.kind === entry.kind && entry.kind === 'reasoning') {
+    last.text = (last.text + ' ' + trimmed).slice(-1200);
+    last.at = Date.now();
+    return;
+  }
+  task.thinkingTrail.push({ kind: entry.kind, text: trimmed, at: Date.now() });
+  if (task.thinkingTrail.length > 60) task.thinkingTrail.shift();
 }
 
 const tasks = new Map<string, ReportTaskInternal>();
@@ -189,12 +215,30 @@ async function callLLMForReport(
   candidates: Product[],
   intent: string,
   preferenceTags: string[],
+  task: ReportTaskInternal,
   signal?: AbortSignal
 ): Promise<string | null> {
   const config = readLLMConfig();
   if (!config) return null;
   const userPrompt = buildReportUserPrompt({ profile, candidates, intent, preferenceTags });
+
   let out = '';
+  let lastSection = '';
+  // 在流式 markdown 里识别 H2 标题（## 一、xxx）作为"章节进展"思维链
+  const onContent = (chunk: string) => {
+    out += chunk;
+    const m = out.match(/##\s*([^\n#]{1,40})\n[^]*$/);
+    const section = m ? m[1].trim() : '';
+    if (section && section !== lastSection) {
+      lastSection = section;
+      pushTrail(task, { kind: 'section', text: `正在撰写：${section}` });
+    }
+  };
+  const onReasoning = (text: string) => {
+    pushTrail(task, { kind: 'reasoning', text });
+  };
+
+  pushTrail(task, { kind: 'system', text: `调用 ${config.provider} 模型 ${config.model}` });
   try {
     for await (const tok of streamLLM(
       config,
@@ -202,13 +246,17 @@ async function callLLMForReport(
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt }
       ],
-      signal
+      signal,
+      onReasoning
     )) {
-      out += tok;
+      onContent(tok);
     }
+    pushTrail(task, { kind: 'system', text: `LLM 流结束，输出 ${out.length} 字` });
     return out.trim() || null;
   } catch (err) {
-    console.warn(`[prodMiddleware] LLM report failed: ${(err as Error).message}`);
+    const msg = (err as Error).message;
+    console.warn(`[prodMiddleware] LLM report failed: ${msg}`);
+    pushTrail(task, { kind: 'system', text: `LLM 调用失败：${msg}` });
     return null;
   }
 }
@@ -219,11 +267,22 @@ async function buildReportPayload(
 ): Promise<ReportPayload> {
   const profile = mockProfiles.find((p) => p.id === task.profileId);
   if (!profile) throw new Error(`unknown profileId: ${task.profileId}`);
+  pushTrail(task, { kind: 'system', text: `读取客户画像 ${profile.id} (${profile.riskLevel})` });
   const products = await fetchOnerec(profile.id, rootDir);
+  pushTrail(task, {
+    kind: 'system',
+    text: `onerec 召回 ${products.length} 条候选 (${products.slice(0, 3).map((p) => p.code).join(',')}...)`
+  });
   const allocations = defaultAllocations(profile);
   const seed = profile.id.charCodeAt(profile.id.length - 1);
 
-  const llmMarkdown = await callLLMForReport(profile, products, task.intent, task.preferenceTags);
+  const llmMarkdown = await callLLMForReport(
+    profile,
+    products,
+    task.intent,
+    task.preferenceTags,
+    task
+  );
   const markdown = llmMarkdown ?? fallbackMarkdown(profile, allocations, products);
 
   return {
@@ -241,26 +300,37 @@ async function buildReportPayload(
 function reportStatus(task: ReportTaskInternal) {
   const elapsed = Date.now() - task.startedAt;
   let acc = 0;
+  // 思维链对所有阶段都下发，前端可决定是否展示
+  const trail = task.thinkingTrail.slice(-30);
   for (const s of STAGE_TIMINGS) {
     if (elapsed < acc + s.delay) {
       return {
         taskId: task.taskId,
         stage: s.stage,
         message: s.message,
-        progress: s.progress
+        progress: s.progress,
+        thinkingTrail: trail
       };
     }
     acc += s.delay;
   }
   if (task.error) {
-    return { taskId: task.taskId, stage: 'error', message: task.error, progress: 0, error: task.error };
+    return {
+      taskId: task.taskId,
+      stage: 'error',
+      message: task.error,
+      progress: 0,
+      error: task.error,
+      thinkingTrail: trail
+    };
   }
   if (!task.payload) {
     return {
       taskId: task.taskId,
       stage: 'writing',
       message: 'AI 仍在撰写中，请稍候…',
-      progress: 95
+      progress: 95,
+      thinkingTrail: trail
     };
   }
   return {
@@ -268,7 +338,8 @@ function reportStatus(task: ReportTaskInternal) {
     stage: 'done',
     message: '生成完毕',
     progress: 100,
-    payload: task.payload
+    payload: task.payload,
+    thinkingTrail: trail
   };
 }
 
@@ -344,6 +415,12 @@ async function streamChatLLM(
   let buffer = '';
   let aborted = false;
   res.on('close', () => (aborted = true));
+  // 把模型原生 reasoning 流（Anthropic thinking_delta / DeepSeek R1
+  // reasoning_content）合成为 SSE thinking 事件，前端 ThinkingSidebar 自动接收。
+  const onReasoning = (text: string) => {
+    if (aborted) return;
+    sseWrite(res, { type: 'thinking', content: text });
+  };
   try {
     for await (const tok of streamLLM(
       config,
@@ -351,7 +428,8 @@ async function streamChatLLM(
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt }
       ],
-      ctrl.signal
+      ctrl.signal,
+      onReasoning
     )) {
       if (aborted) break;
       buffer += tok;
@@ -447,7 +525,8 @@ export function prodBackendPlugin(): Plugin {
               profileId: parsed.profileId,
               intent: parsed.intent ?? '',
               preferenceTags: parsed.preferenceTags ?? [],
-              startedAt: Date.now()
+              startedAt: Date.now(),
+              thinkingTrail: []
             };
             tasks.set(taskId, task);
             // 后台异步构造 payload；不 await
