@@ -54,10 +54,26 @@ ${intent ? `- 客户本次意图：${intent}` : ''}
 
 ## {Target_Allocation}（按风险等级 ${profile.riskLevel} 取建议区间）
 - 现金管理：建议 10%
-- 固定收益：建议区间 ${profile.riskLevel === 'C5' ? '15%-30%' : profile.riskLevel === 'C4' ? '30%-55%' : '45%-83%'}
-- 权益类：建议区间 ${profile.riskLevel === 'C5' ? '40%-65%' : profile.riskLevel === 'C4' ? '20%-35%' : '8%-14%'}
+- 固定收益：建议区间 ${
+    profile.riskLevel === 'R5'
+      ? '15%-30%'
+      : profile.riskLevel === 'R4'
+      ? '30%-55%'
+      : profile.riskLevel === 'R3'
+      ? '45%-65%'
+      : '60%-85%'
+  }
+- 权益类：建议区间 ${
+    profile.riskLevel === 'R5'
+      ? '40%-65%'
+      : profile.riskLevel === 'R4'
+      ? '20%-35%'
+      : profile.riskLevel === 'R3'
+      ? '8%-14%'
+      : '0%-5%'
+  }
 - 保障类：建议 10%
-- 另类：建议 5%
+- 另类：建议 ${profile.riskLevel === 'R1' ? '0%' : '5%'}
 
 ## {Macro_Views}（本季度大类资产评级）
 - 全球：地缘冲突推升油价，美联储 Q2 维稳，海外股债短期震荡
@@ -84,7 +100,24 @@ ${candidatesBlock}
  * 大类资产权重默认建议（当 LLM 未返回结构化权重时由后端兜底）
  */
 export function defaultAllocations(profile: UserProfile) {
-  if (profile.riskLevel === 'C3') {
+  if (profile.riskLevel === 'R1') {
+    return [
+      { asset: 'cash' as const, label: '货币现金', weight: 35 },
+      { asset: 'bond' as const, label: '中长期债券', weight: 55 },
+      { asset: 'gold' as const, label: '黄金', weight: 5 },
+      { asset: 'equity_a' as const, label: 'A股核心宽基', weight: 5 }
+    ];
+  }
+  if (profile.riskLevel === 'R2') {
+    return [
+      { asset: 'bond' as const, label: '中长期债券', weight: 60 },
+      { asset: 'cash' as const, label: '货币现金', weight: 18 },
+      { asset: 'equity_a' as const, label: 'A股核心宽基', weight: 12 },
+      { asset: 'gold' as const, label: '黄金', weight: 7 },
+      { asset: 'qdii' as const, label: '海外权益', weight: 3 }
+    ];
+  }
+  if (profile.riskLevel === 'R3') {
     return [
       { asset: 'bond' as const, label: '中长期债券', weight: 55 },
       { asset: 'equity_a' as const, label: 'A股核心宽基', weight: 18 },
@@ -93,7 +126,7 @@ export function defaultAllocations(profile: UserProfile) {
       { asset: 'qdii' as const, label: '海外权益', weight: 5 }
     ];
   }
-  if (profile.riskLevel === 'C4') {
+  if (profile.riskLevel === 'R4') {
     return [
       { asset: 'equity_a' as const, label: 'A股核心宽基', weight: 32 },
       { asset: 'bond' as const, label: '中长期债券', weight: 30 },
@@ -103,6 +136,7 @@ export function defaultAllocations(profile: UserProfile) {
       { asset: 'cash' as const, label: '货币现金', weight: 5 }
     ];
   }
+  // R5
   return [
     { asset: 'equity_a' as const, label: 'A股核心宽基', weight: 38 },
     { asset: 'qdii' as const, label: '海外权益', weight: 28 },

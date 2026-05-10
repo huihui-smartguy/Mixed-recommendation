@@ -6,7 +6,7 @@ const profile: UserProfile = {
   uid: 'CUST-A',
   name: '客户A',
   displayName: '客户A',
-  riskLevel: 'C3',
+  riskLevel: 'R3',
   aum: 1_000_000,
   age: 40,
   preferenceTags: ['稳健']
