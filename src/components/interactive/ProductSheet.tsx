@@ -44,8 +44,7 @@ export default function ProductSheet({
             onToggle={onToggleCompare}
           />
           <div className="muted" style={{ marginTop: 16, lineHeight: 1.7 }}>
-            数据由 onerec 召回池提供，AI 推荐仅供参考，不构成投资建议。
-            下拉或点击遮罩可关闭返回对话。
+            AI 推荐仅供参考，不构成投资建议。下拉或点击遮罩可关闭返回对话。
           </div>
         </div>
       ) : null}
