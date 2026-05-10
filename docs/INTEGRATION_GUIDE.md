@@ -2,6 +2,10 @@
 
 > 面向后端 / 算法 / 联调同学。把"前端能输入什么 → BFF 怎么调 onerec → 怎么喂给 LLM → 怎么返回前端"一次说清，避免反复对齐字段。
 
+> ⚠️ **关键设计**：onerec **只在生成式推荐**链路里使用；交互式推荐**不**调 onerec
+> （开放式对话不需要圈定 top-k 候选池）。客户画像 (`profile`) 在两条链路上都会注入
+> LLM prompt，让对话/报告与客户风险偏好对齐。
+
 ---
 
 ## 0. 端到端拓扑
@@ -17,10 +21,9 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │  Node BFF (Vite middleware)                                          │
 │   src/server/prodMiddleware.ts                                       │
-│   ┌──────────────┐  ┌──────────────────┐  ┌────────────────────────┐ │
-│   │ fetchOnerec()│→ │ buildPrompt(...) │→ │ streamLLM (Anthropic / │ │
-│   │   HTTP GET   │  │  注入候选池      │  │   OpenAI 兼容)         │ │
-│   └──────────────┘  └──────────────────┘  └────────────────────────┘ │
+│                                                                      │
+│   生成式：fetchOnerec() → buildReportUserPrompt() → streamLLM()      │
+│   交互式：mockProductPool (内置)  → buildChatUserPrompt() → streamLLM│
 └──────────────────────────────────────────────────────────────────────┘
         │                                          │
         ▼                                          ▼
@@ -28,12 +31,38 @@
 │ Python onerec sidecar      │         │ LLM 厂商 (Anthropic /      │
 │ backend/onerec_service     │         │  DeepSeek / 通义 / 智谱)   │
 │ FastAPI + Pydantic v2      │         │                            │
+│  *(仅生成式链路使用)*       │         │                            │
 └────────────────────────────┘         └────────────────────────────┘
 ```
 
 * 所有跨进程调用都是 **HTTP**（onerec sidecar 走 REST，LLM 走各自厂商协议）。
 * 浏览器永远只能看到 `/api/v1/*`，不直接接触 onerec / LLM。
 * 缺凭证时（`LLM_API_KEY` 未配 / `ONEREC_BASE_URL` 不可达）BFF 会**全链路降级**到脚本化 mock，前端体验保持连贯。
+
+---
+
+## 0.1 5 位 mock 客户（与 docs/customer_sample.md 对齐）
+
+生成式与交互式两条链路**共用**同一份 5 人 mock 池，定义在
+[`src/services/mockData.ts`](../src/services/mockData.ts)。前端通过
+`fetchProfiles()` 拉取列表，`useProfileStore` 管理 `activeId`。
+
+| uid (Cust_Id) | 姓名 | 风险等级 | 性别 | 年龄 | 学历 | 投资经验 | 总资产 | 综合收益率 | VIP |
+|---|---|---|---|---|---|---|---|---|---|
+| 1000000001 | 陈建国 | R3 平衡型 | 男 | 43 | 大专 | 1-3年 | 335.20 万 | 5.8% | VIP3 |
+| 1000000002 | 苏雅婷 | R4 进取型 | 女 | 46 | 本科 | 10年以上 | 589.30 万 | 2.9% | VIP3 |
+| 1000000004 | 李文博 | R2 稳健型 | 男 | 46 | 硕士 | 10年以上 | 138.20 万 | 4.8% | VIP1 |
+| 1000000008 | 王志远 | R5 激进型 | 男 | 55 | 本科 | 10年以上 | 1882.90 万 | 5.9% | VIP6 |
+| 1000000011 | 周晓菲 | R1 保守型 | 女 | 29 | 本科 | 1-3年 | 98.60 万 | 4.9% | VIP1 |
+
+每位客户带有完整的：
+- 持仓六大类金额（`holdings.cash / fixed_income / equity / insurance / alternative / other` 元）
+- onerec 输入端 `user_profile` 描述串（由 `src/utils/profilePrompt.ts::buildOnerecUserProfile()` 自动合成）
+- onerec `hist_products` sid 序列示例
+- 还款方式 / 年收入 / 客户等级（VIP）
+
+新增字段时遵循 [`docs/customer_sample.md`](./customer_sample.md) 的字段命名表，
+不要去掉 id/displayName 这些旧字段，保持向后兼容。
 
 ---
 
@@ -45,7 +74,7 @@
 
 | 字段 | 类型 | 必填 | 来源（前端组件） | 说明 |
 |---|---|---|---|---|
-| `profileId` | string | ✅ | `ButtonWizard` 中的 `Select` / `ConversationTrigger` 默认取第一个画像 | 客户 ID。例 `"CUST-A"` |
+| `profileId` | string | ✅ | `ButtonWizard` 中的 `Select` / `ConversationTrigger` 默认取第一个画像 | 客户 uid（10 位 onerec ID）。例 `"1000000001"` |
 | `preferenceTags` | string[] | ❌ | `ButtonWizard` 中的 `Tag.CheckableTag` | 偏好标签，例 `["稳健保值","海外配置"]` |
 | `intent` | string | ❌ | `ConversationTrigger` 中的 `<Input.TextArea />` | 自然语言意图，例 `"生成张总下半年的稳健型配置报告"` |
 
@@ -56,7 +85,7 @@ POST /api/v1/report/generate
 Content-Type: application/json
 
 {
-  "profileId": "CUST-A",
+  "profileId": "1000000001",
   "preferenceTags": ["稳健保值", "黄金避险"],
   "intent": "生成张总下半年的稳健型配置报告"
 }
@@ -142,17 +171,18 @@ Authorization: Bearer <ONEREC_API_TOKEN>     # 可选
 > 兼容：旧的扁平 `Product[]`（含 `product_code/product_name/type/...`）依然可用，
 > 仅当响应里没有 `recommendations_by_type` 才走旧路径。
 
-### 2.2.1 onerec 上游请求体（参考 docs/request.md）
+### 2.2.1 onerec 上游请求体（与 docs/request.md 一字不差）
 
-Sidecar 内部如果调用真实 onerec HTTP 服务，body 形态为：
+Sidecar 调用真实 onerec HTTP 服务的 body：
 
 ```json
-POST /v1/completions
+POST /v1/completions HTTP/1.1
 Authorization: Bearer {your_api_key}
+Content-Type: application/json
 
 {
   "model": "OneRec-8B-full-tunning",
-  "prompt": "客户风险等级R3，金融资产总额166.00万元...",
+  "prompt": "客户风险等级R3，金融资产总额335.20万元。已投资资产335.20万元，其中现金管理类109.00万元、固定收益类27.10万元、权益类14.70万元、保障类10.80万元、另类9.80万元、其他5.60万元。累计总收益19.40万元。该客户 年龄43，职业108.00，性别男，学历大专，投资经验1-3年。",
   "max_tokens": 512,
   "temperature": 0.9,
   "top_p": 0.95,
@@ -162,8 +192,41 @@ Authorization: Bearer {your_api_key}
 }
 ```
 
-由 `_RealRecommender.predict()` 拉客户特征后渲染成 prompt 字符串，详见
-[`backend/onerec_service/app/recommender.py`](../backend/onerec_service/app/recommender.py)。
+`prompt` 字段就是客户的 `user_profile` 描述串，由 5 个固定字段组装而成：
+
+| 段落 | 来源 | 示例 |
+|---|---|---|
+| 风险等级 + 总资产 | `Rsk_Grd` + `Curr_Bal` (Hold_Market_Val_0) | `客户风险等级R3，金融资产总额335.20万元` |
+| 已投资 + 五大类金额 | `Hold_Market_Val_1~6` | `已投资资产335.20万元，其中现金管理类109.00万元、固定收益类27.10万元、权益类14.70万元、保障类10.80万元、另类9.80万元、其他5.60万元` |
+| 累计总收益 | `Total_Profit_0` | `累计总收益19.40万元` |
+| 人口学特征 | `Age` + `Vocation_Cd` + `Gender_Cd` + `Edu_Degree_Cd` + `Invest_Expre` | `该客户 年龄43，职业108.00，性别男，学历大专，投资经验1-3年` |
+
+#### 客户端组装
+
+* **TypeScript** ：`src/utils/profilePrompt.ts::buildOnerecUserProfile(profile)` 与
+  `buildOnerecCompletionRequest(profile)` 直接产出 prompt 字符串和完整请求体，
+  入参就是 `UserProfile` 对象（`uid` / `riskLevel` / `holdings` / `gender` / ...）。
+* **Python** ：`backend/onerec_service/app/recommender.py::build_request_body(user_profile)`
+  接受已拼好的字符串，输出 `dict` 给 `requests.post(...)` 直接用。
+
+```ts
+// Node 侧示例（接入真实 onerec 时直接复用）
+import { buildOnerecCompletionRequest } from '@/utils/profilePrompt';
+const body = buildOnerecCompletionRequest(profile);  // n=3, top_p=0.95, ...
+const r = await fetch(`${ONEREC_BASE_URL}/v1/completions`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${ONEREC_API_TOKEN}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+```
+
+```python
+# Python 侧示例（在 _RealRecommender.predict 里）
+from .recommender import build_request_body
+prompt = customer.user_profile or build_user_profile_string(customer)  # 自定义合成器
+body = build_request_body(prompt, n=top_k)
+resp = requests.post(f"{ONEREC_BASE_URL}/v1/completions", json=body, headers={...})
+```
 
 ### 2.3 配置（项目根 `.env`）
 
@@ -323,7 +386,7 @@ ReportViewer.tsx → StepLoading 把 thinkingTrail 渲染成"真实后端调用�
 | `uid` | string | **onerec 协议字段**，sidecar 的 `userId` 查询参数；与 `id` 等价（兼容旧字段） |
 | `name` | string | **客户真实姓名**（卡片展示 + Prompt 称谓） |
 | `user_profile` | string | **onerec 输入端那段画像描述串**，前端展开展示，后端原样注入 LLM prompt |
-| `displayName` | string | 旧字段：含称谓后缀的展示名（如"客户A · 稳健型"），保留兼容 |
+| `displayName` | string | 旧字段：含称谓后缀的展示名（如"陈建国 · 平衡型"），保留兼容 |
 | `riskLevel` | `'C1'\|'C2'\|'C3'\|'C4'\|'C5'` | 决定 LLM 写作语气、能否推荐高弹性资产 |
 | `aum` | number (单位：元) | 资产规模影响配置颗粒度 |
 | `age` | number | 影响生命周期建议（年龄越大越偏稳健） |
@@ -340,15 +403,28 @@ Accept: text/event-stream
 {
   "prompt": "下半年怎么配？",
   "profile": {
-    "id": "CUST-A",
-    "uid": "1000000261",
-    "name": "张明远",
-    "displayName": "客户A · 稳健型",
-    "user_profile": "客户风险等级R3，金融资产总额128.00万元...",
-    "riskLevel": "C3",
-    "aum": 1280000,
-    "age": 42,
-    "preferenceTags": ["稳健", "权益偏低", "债券为主"]
+    "id": "1000000001",
+    "uid": "1000000001",
+    "name": "陈建国",
+    "displayName": "陈建国 · 平衡型",
+    "user_profile": "客户风险等级R3，金融资产总额335.20万元。已投资资产335.20万元，其中现金管理类109.00万元、固定收益类27.10万元、权益类14.70万元、保障类10.80万元、另类9.80万元、其他5.60万元。累计总收益19.40万元。该客户 年龄43，职业108.00，性别男，学历大专，投资经验1-3年。",
+    "riskLevel": "R3",
+    "aum": 3352000,
+    "age": 43,
+    "gender": "男",
+    "vocation_cd": 108,
+    "edu_degree": "大专",
+    "invest_expre": "1-3年",
+    "holdings": {
+      "cash": 1090000,
+      "fixed_income": 271000,
+      "equity": 147000,
+      "insurance": 108000,
+      "alternative": 98000,
+      "other": 56000,
+      "total_profit": 194000
+    },
+    "preferenceTags": ["现金管理为主", "固收偏好", "稳健"]
   }
 }
 ```
@@ -383,22 +459,24 @@ ChatWorkspace.send(text)                      │
 
 #### 调用流（后端）
 
-`src/server/prodMiddleware.ts`：
+`src/server/prodMiddleware.ts::streamChatLLM()`：
+
+> ⚠️ **重要：交互式推荐不再调 onerec**。交互场景是开放式对话，强制圈一个 top-k 候选池
+> 反而会限制 LLM 的话术覆盖面。BFF 直接用内置 `mockProductPool` 作为话术兜底素材；
+> 画像（uid / 风险等级 / 偏好）仍然注入 prompt，让 LLM 与客户风险匹配。
+>
+> *onerec 仅在生成式推荐链路里使用*，详见 §1 的 fetchOnerec 调用。
 
 ```ts
 // 路由层读 body
 const { prompt, profile } = JSON.parse(body);
 
-// 1️⃣ 用 profile.id 拿个性化候选池
-const userId = profile?.id ?? process.env.DEFAULT_USER_ID ?? 'CUST-A';
-const candidates = await fetchOnerec(userId, rootDir);
-//        ↓
-//        HTTP GET ${ONEREC_BASE_URL}/products?userId=${userId}&topK=8
-//        Python sidecar 用同一个 userId 调真实 onerec 模型
+// 1️⃣ 拿内置话术兜底素材（不调 onerec）
+const candidates = mockProductPool.slice(0, 6);
 
 // 2️⃣ 把画像字段拼进 LLM prompt
 const summary = profile
-  ? `${profile.displayName} (${profile.id}) · 风险等级 ${profile.riskLevel}
+  ? `${profile.name ?? profile.displayName} (${profile.uid}) · 风险等级 ${profile.riskLevel}
      · 在管 ${(profile.aum/10000).toFixed(0)} 万 · ${profile.age} 岁
      · 偏好：${profile.preferenceTags.join('、')}`
   : undefined;
@@ -422,7 +500,7 @@ streamLLM(config, [{role:'system', content: SYSTEM_PROMPT}, {role:'user', conten
 下半年怎么配？
 
 【客户画像】
-客户A · 稳健型 (CUST-A) · 风险等级 C3 · 在管 128 万 · 42 岁
+陈建国 (1000000001) · 风险等级 R3 · 在管 335 万 · 43 岁
                 · 偏好：稳健、权益偏低、债券为主
 
 【onerec 候选池（请只在此池中挑选产品）】
@@ -588,7 +666,7 @@ LLM_MAX_TOKENS=2048
 ONEREC_BASE_URL=http://127.0.0.1:8765
 ONEREC_API_TOKEN=please-rotate-me
 ONEREC_TIMEOUT_MS=5000
-DEFAULT_USER_ID=CUST-A
+DEFAULT_USER_ID=1000000001
 ```
 
 ## 附 B：本地启动

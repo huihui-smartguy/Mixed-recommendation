@@ -2,7 +2,7 @@ import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { mockProfiles } from '../services/mockData';
+import { mockProductPool, mockProfiles } from '../services/mockData';
 import type {
   Allocation,
   Product,
@@ -142,7 +142,7 @@ async function fetchOnerec(
     }
   }
   const datasets = await loadOnerecMock(rootDir);
-  const items = datasets[userId]?.items ?? datasets['CUST-A']?.items ?? [];
+  const items = datasets[userId]?.items ?? datasets['1000000001']?.items ?? [];
   return normalizeOnerecResponse(items).slice(0, topK);
 }
 
@@ -411,15 +411,17 @@ function profileSummary(p?: UserProfile): string | undefined {
 async function streamChatLLM(
   prompt: string,
   profile: UserProfile | undefined,
-  rootDir: string,
+  _rootDir: string,
   res: ServerResponse
 ): Promise<boolean> {
   const config = readLLMConfig();
   if (!config) return false;
 
-  // 用画像 ID 拿个性化候选池；缺画像走 DEFAULT_USER_ID 兜底
-  const userId = profile?.id ?? process.env.DEFAULT_USER_ID ?? 'CUST-A';
-  const candidates = await fetchOnerec(userId, rootDir);
+  // ⚠️ 设计选择：交互式推荐**不**调 onerec。
+  // 交互场景是开放式对话，强制圈一个 top-k 候选池反而会限制 LLM 的覆盖面。
+  // 这里直接用 mockProductPool 作为内置话术兜底素材；profile 仍会注入 prompt
+  // 让 LLM 理解风险等级与偏好。
+  const candidates = mockProductPool.slice(0, 6);
   const userPrompt = buildChatUserPrompt({
     userPrompt: prompt,
     candidates,

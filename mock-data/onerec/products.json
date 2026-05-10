@@ -1,191 +1,126 @@
 {
-  "_comment": "onerec 推荐引擎模拟返回数据。字段命名采用真实生产环境常见的 snake_case 格式。前端 src/services/onerecAdapter.ts 中的 normalizeOnerecResponse 会做字段归一与脏值清洗。修改后 pnpm dev 会立即生效。",
+  "_comment": "onerec 推荐引擎模拟返回数据，与 docs/onerec_example.md 真实形态对齐：每个 uid 下挂 user_profile / hist_products / recommendations_by_type。前端 src/services/onerecAdapter.ts::normalizeOnerecResponse() 自动识别该结构，把 recommendations_by_type[type].recommended_pids/recommended_texts 解析成 Product[]。",
   "_schema": {
-    "userId": "客户 ID",
-    "items": "召回的产品列表",
-    "items[].product_code": "产品代码（必备字段，缺失则被丢弃）",
-    "items[].product_name": "产品名称（必备字段）",
-    "items[].type": "产品类型 / 资产大类",
-    "items[].net_value": "最新净值",
-    "items[].change_pct": "日涨跌幅 %",
-    "items[].return_1y": "近一年收益 %",
-    "items[].return_3y": "近三年收益 %",
-    "items[].max_drawdown": "最大回撤 % (负数)",
-    "items[].sharpe": "夏普比率",
-    "items[].sparkline": "近 N 期净值数组（前端 4-64 之间归一化）",
-    "items[].recommendation": "onerec 给出的推荐理由（可选）"
+    "datasets": "按 uid 索引；uid 即 docs/customer_sample.md 的 Cust_Id",
+    "datasets[uid].uid": "客户唯一 ID",
+    "datasets[uid].user_profile": "onerec 输入端那段画像描述串",
+    "datasets[uid].hist_products": "历史持仓的 sid 序列拼接",
+    "datasets[uid].recommendations_by_type": "按产品大类（基金/理财/...）分组的召回结果",
+    "datasets[uid].recommendations_by_type[type].recommended_pids": "推荐的产品 ID",
+    "datasets[uid].recommendations_by_type[type].recommended_texts": "推荐文本（含产品名称/风险等级/历史收益）"
   },
   "datasets": {
-    "CUST-A": {
-      "userId": "CUST-A",
-      "items": [
-        {
-          "product_code": "003376",
-          "product_name": "汇添富中债3-5年政策金融债",
-          "type": "中长期纯债",
-          "net_value": "1.1428",
-          "change_pct": "0.04",
-          "return_1y": "4.7",
-          "return_3y": "14.9",
-          "max_drawdown": "-1.8",
-          "sharpe": "1.32",
-          "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
-          "recommendation": "提供组合压舱石作用，久期适中、违约风险低"
+    "1000000001": {
+      "uid": "1000000001",
+      "user_profile": "客户风险等级R3，金融资产总额335.20万元。已投资资产335.20万元，其中现金管理类109.00万元、固定收益类27.10万元、权益类14.70万元、保障类10.80万元、另类9.80万元、其他5.60万元。累计总收益19.40万元。该客户 年龄43，职业108.00，性别男，学历大专，投资经验1-3年。",
+      "hist_products": "<|sid_begin|><s_a_4200><s_b_600><s_c_4580><|sid_end|>: 产品 P01592 属于理财-短期理财，风险等级R2，持有市值 67502.00，总收益 8852.00。",
+      "recommendations_by_type": {
+        "理财": {
+          "recommended_pids": ["P00445", "P02174"],
+          "recommended_texts": [
+            "定期理财 - 理财类产品，风险等级为R2，产品名称为定期理财（180天封闭）。历史收益水平(%)2.81。产品说明：稳健型客户压舱石。",
+            "大额存单 - 理财类产品，风险等级为R2，产品名称为大额存单（私银专享）。历史收益水平(%)3.17。产品说明：低波动锁定收益。"
+          ],
+          "similarity": [0.0021, 0.0014],
+          "recommendation_count": 2
         },
-        {
-          "product_code": "180202",
-          "product_name": "南方红利低波50ETF",
-          "type": "红利策略",
-          "net_value": "1.4218",
-          "change_pct": "0.36",
-          "return_1y": "9.8",
-          "return_3y": "22.7",
-          "max_drawdown": "-14.6",
-          "sharpe": "0.82",
-          "sparkline": [1.0, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08, 1.1, 1.12, 1.13, 1.15, 1.16],
-          "recommendation": "高股息+低波动，匹配稳健型客户现金流诉求"
-        },
-        {
-          "product_code": "518880",
-          "product_name": "华安黄金易ETF",
-          "type": "商品·黄金",
-          "net_value": "5.4123",
-          "change_pct": "0.58",
-          "return_1y": "18.2",
-          "return_3y": "42.5",
-          "max_drawdown": "-12.4",
-          "sharpe": "1.08",
-          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
-          "recommendation": "抗通胀与避险属性，与权益资产相关性较低"
-        },
-        {
-          "product_code": "000961",
-          "product_name": "天弘沪深300ETF联接A",
-          "type": "宽基指数",
-          "net_value": "1.6234",
-          "change_pct": "0.82",
-          "return_1y": "12.4",
-          "return_3y": "26.1",
-          "max_drawdown": "-18.2",
-          "sharpe": "0.74",
-          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
-          "recommendation": "锚定核心资产，估值分位低于近五年中位数"
+        "基金": {
+          "recommended_pids": ["P02382", "P00265"],
+          "recommended_texts": [
+            "FOF基金 - 基金类产品，风险等级为R3，产品名称为博时恒泽稳健号。历史收益水平(%)2.30。产品说明：偏债混合FOF注重回撤控制。",
+            "混合基金 - 基金类产品，风险等级为R3，产品名称为广发聚丰A号。历史收益水平(%)33.92。产品说明：聚焦周期赛道，弹性较高。"
+          ],
+          "similarity": [0.0019, 0.0011],
+          "recommendation_count": 2
         }
-      ]
+      }
     },
-    "CUST-B": {
-      "userId": "CUST-B",
-      "items": [
-        {
-          "product_code": "000961",
-          "product_name": "天弘沪深300ETF联接A",
-          "type": "宽基指数",
-          "net_value": "1.6234",
-          "change_pct": "0.82",
-          "return_1y": "12.4",
-          "return_3y": "26.1",
-          "max_drawdown": "-18.2",
-          "sharpe": "0.74",
-          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
-          "recommendation": "锚定核心资产，估值分位低于近五年中位数"
+    "1000000002": {
+      "uid": "1000000002",
+      "user_profile": "客户风险等级R4，金融资产总额589.30万元。已投资资产589.30万元，其中现金管理类274.40万元、固定收益类185.10万元、权益类134.80万元、保障类54.60万元、另类38.20万元、其他6.10万元。累计总收益17.10万元。该客户 年龄46，职业124.00，性别女，学历本科，投资经验10年以上。",
+      "hist_products": "<|sid_begin|><s_a_1661><s_b_2479><s_c_1254><|sid_end|>: 产品 P01257 属于理财-中期理财，风险等级R3，持有市值 160689.00，总收益 17383.00。",
+      "recommendations_by_type": {
+        "理财": {
+          "recommended_pids": ["P03432"],
+          "recommended_texts": [
+            "长期理财 - 理财类产品，风险等级为R3，产品名称为悦丰利增盈号。历史收益水平(%)4.55。产品说明：14个月封闭，业绩基准 2.40%-2.70%。"
+          ],
+          "similarity": [0.0023],
+          "recommendation_count": 1
         },
-        {
-          "product_code": "180202",
-          "product_name": "南方红利低波50ETF",
-          "type": "红利策略",
-          "net_value": "1.4218",
-          "change_pct": "0.36",
-          "return_1y": "9.8",
-          "return_3y": "22.7",
-          "max_drawdown": "-14.6",
-          "sharpe": "0.82",
-          "sparkline": [1.0, 1.01, 1.03, 1.04, 1.05, 1.07, 1.08, 1.1, 1.12, 1.13, 1.15, 1.16],
-          "recommendation": "中报盈利改善，高股息提供安全垫"
-        },
-        {
-          "product_code": "003376",
-          "product_name": "汇添富中债3-5年政策金融债",
-          "type": "中长期纯债",
-          "net_value": "1.1428",
-          "change_pct": "0.04",
-          "return_1y": "4.7",
-          "return_3y": "14.9",
-          "max_drawdown": "-1.8",
-          "sharpe": "1.32",
-          "sparkline": [1.0, 1.005, 1.012, 1.018, 1.024, 1.03, 1.036, 1.04, 1.045, 1.05, 1.058, 1.063],
-          "recommendation": "防御端配置，对冲权益波动"
-        },
-        {
-          "product_code": "518880",
-          "product_name": "华安黄金易ETF",
-          "type": "商品·黄金",
-          "net_value": "5.4123",
-          "change_pct": "0.58",
-          "return_1y": "18.2",
-          "return_3y": "42.5",
-          "max_drawdown": "-12.4",
-          "sharpe": "1.08",
-          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
-          "recommendation": "全球央行购金潮 + 实际利率下行，长期看好"
+        "基金": {
+          "recommended_pids": ["P03806", "P03555"],
+          "recommended_texts": [
+            "ETF基金 - 基金类产品，风险等级为R4，产品名称为国泰纳指QDII号。历史收益水平(%)4.26。产品说明：跟踪纳斯达克100指数，配置全球科技龙头。",
+            "股票基金 - 基金类产品，风险等级为R3，产品名称为广发聚丰A号。历史收益水平(%)20.74。产品说明：聚焦周期赛道。"
+          ],
+          "similarity": [0.0028, 0.0016],
+          "recommendation_count": 2
         }
-      ]
+      }
     },
-    "CUST-C": {
-      "userId": "CUST-C",
-      "items": [
-        {
-          "product_code": "513100",
-          "product_name": "国泰纳斯达克100ETF",
-          "type": "QDII·海外权益",
-          "net_value": "4.5621",
-          "change_pct": "1.65",
-          "return_1y": "28.6",
-          "return_3y": "64.2",
-          "max_drawdown": "-33.1",
-          "sharpe": "0.96",
-          "sparkline": [1.0, 1.05, 1.12, 1.08, 1.18, 1.25, 1.32, 1.28, 1.4, 1.45, 1.5, 1.56],
-          "recommendation": "配置全球科技龙头，对冲单一市场系统性风险"
-        },
-        {
-          "product_code": "000961",
-          "product_name": "天弘沪深300ETF联接A",
-          "type": "宽基指数",
-          "net_value": "1.6234",
-          "change_pct": "0.82",
-          "return_1y": "12.4",
-          "return_3y": "26.1",
-          "max_drawdown": "-18.2",
-          "sharpe": "0.74",
-          "sparkline": [1.0, 1.02, 0.98, 1.05, 1.08, 1.04, 1.11, 1.15, 1.13, 1.18, 1.22, 1.2],
-          "recommendation": "A 股核心仓位，盈利底部修复"
-        },
-        {
-          "product_code": "161725",
-          "product_name": "招商中证白酒指数(LOF)",
-          "type": "行业主题",
-          "net_value": "0.8421",
-          "change_pct": "-1.42",
-          "return_1y": "-8.1",
-          "return_3y": "-12.4",
-          "max_drawdown": "-42.5",
-          "sharpe": "-0.18",
-          "sparkline": [1.0, 0.96, 1.04, 0.92, 0.85, 0.88, 0.81, 0.78, 0.83, 0.79, 0.82, 0.84],
-          "recommendation": "估值已处于历史底部区间，适合左侧逢低分批"
-        },
-        {
-          "product_code": "518880",
-          "product_name": "华安黄金易ETF",
-          "type": "商品·黄金",
-          "net_value": "5.4123",
-          "change_pct": "0.58",
-          "return_1y": "18.2",
-          "return_3y": "42.5",
-          "max_drawdown": "-12.4",
-          "sharpe": "1.08",
-          "sparkline": [1.0, 1.04, 1.06, 1.08, 1.12, 1.15, 1.18, 1.22, 1.26, 1.3, 1.33, 1.36],
-          "recommendation": "组合波动平滑器，建议常态 5-8%"
+    "1000000004": {
+      "uid": "1000000004",
+      "user_profile": "客户风险等级R2，金融资产总额138.20万元。已投资资产138.20万元，其中现金管理类94.40万元、固定收益类41.80万元、权益类9.60万元、保障类8.90万元、另类4.70万元、其他1.30万元。累计总收益6.60万元。该客户 年龄46，职业116.00，性别男，学历硕士，投资经验10年以上。",
+      "hist_products": "<|sid_begin|><s_a_4200><s_b_4828><s_c_4580><|sid_end|>: 产品 P04431 属于理财-短期理财，风险等级R2，持有市值 35796.00，总收益 6036.00。",
+      "recommendations_by_type": {
+        "理财": {
+          "recommended_pids": ["P00697", "P01023"],
+          "recommended_texts": [
+            "结构性存款 - 理财类产品，风险等级为R2，产品名称为天添鑫中短债号。历史收益水平(%)2.27。产品说明：每日开放，挂钩中债指数。",
+            "封闭式理财 - 理财类产品，风险等级为R2，产品名称为季季鑫封闭式475号。历史收益水平(%)1.20。产品说明：3个月封闭，丰富固收期限结构。"
+          ],
+          "similarity": [0.0017, 0.0012],
+          "recommendation_count": 2
         }
-      ]
+      }
+    },
+    "1000000008": {
+      "uid": "1000000008",
+      "user_profile": "客户风险等级R5，金融资产总额1882.90万元。已投资资产1882.90万元，其中现金管理类250.80万元、固定收益类286.60万元、权益类283.80万元、保障类126.40万元、另类42.80万元、其他44.80万元。累计总收益111.10万元。该客户 年龄55，职业114.00，性别男，学历本科，投资经验10年以上。",
+      "hist_products": "<|sid_begin|><s_a_4200><s_b_7077><s_c_4195><|sid_end|>: 产品 P01740 属于基金-ETF基金，风险等级R5，持有市值 364925.00，总收益 14140.00。",
+      "recommendations_by_type": {
+        "基金": {
+          "recommended_pids": ["P03771", "P00190", "P01244"],
+          "recommended_texts": [
+            "ETF基金 - 基金类产品，风险等级为R5，产品名称为国泰纳斯达克100ETF号。历史收益水平(%)4.48。产品说明：海外科技龙头集中投资。",
+            "FOF基金 - 基金类产品，风险等级为R4，产品名称为兴全合宜号。历史收益水平(%)5.39。产品说明：行业分散的进取型FOF。",
+            "混合基金 - 基金类产品，风险等级为R4，产品名称为汇添富消费机遇号。历史收益水平(%)1.03。产品说明：聚焦消费赛道。"
+          ],
+          "similarity": [0.0035, 0.0024, 0.0018],
+          "recommendation_count": 3
+        },
+        "理财": {
+          "recommended_pids": [],
+          "recommended_texts": [],
+          "similarity": [],
+          "recommendation_count": 0
+        }
+      }
+    },
+    "1000000011": {
+      "uid": "1000000011",
+      "user_profile": "客户风险等级R1，金融资产总额98.60万元。已投资资产98.60万元，其中现金管理类33.30万元、固定收益类12.10万元、权益类0.00万元、保障类0.00万元、另类0.00万元、其他0.00万元。累计总收益4.90万元。该客户 年龄29，职业102.00，性别女，学历本科，投资经验1-3年。",
+      "hist_products": "<|sid_begin|><s_a_2610><s_b_3184><s_c_1857><|sid_end|>: 产品 P00863 属于理财-结构性存款，风险等级R1，持有市值 17252.00，总收益 2019.00。",
+      "recommendations_by_type": {
+        "理财": {
+          "recommended_pids": ["P03904", "P04121"],
+          "recommended_texts": [
+            "结构性存款 - 理财类产品，风险等级为R1，产品名称为天天盈771号。历史收益水平(%)0.61。产品说明：保守型客户压舱石。",
+            "短期理财 - 理财类产品，风险等级为R1，产品名称为可转债优选号。历史收益水平(%)0.94。产品说明：短期收益增强工具。"
+          ],
+          "similarity": [0.0011, 0.0008],
+          "recommendation_count": 2
+        },
+        "基金": {
+          "recommended_pids": ["P00589"],
+          "recommended_texts": [
+            "货币基金 - 基金类产品，风险等级为R1，产品名称为天弘货币号。历史收益水平(%)2.09。产品说明：T+0 现金管理工具。"
+          ],
+          "similarity": [0.0009],
+          "recommendation_count": 1
+        }
+      }
     }
   }
 }

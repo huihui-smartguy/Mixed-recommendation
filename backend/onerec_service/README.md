@@ -50,7 +50,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8765 --reload
 
 ```bash
 curl -s "http://127.0.0.1:8765/healthz" | jq
-curl -s "http://127.0.0.1:8765/products?userId=CUST-A&topK=4" | jq
+curl -s "http://127.0.0.1:8765/products?userId=1000000001&topK=4" | jq
 ```
 
 OpenAPI 文档：<http://127.0.0.1:8765/docs>

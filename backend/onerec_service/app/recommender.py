@@ -30,37 +30,37 @@ class _RealRecommender:
     """
     真实 onerec 模型适配器。
 
-    TODO（接入步骤，按真实 onerec API 调整）：
-        1. pip 安装：pip install onerec  （或公司私有源）
-        2. 取消下面 import 的注释；指向你们的 checkpoint
-        3. 在 predict() 内：
-           a) 用 uid 拉客户特征 → 拼成 docs/request.md 中的 prompt 字符串
-           b) 调真实 onerec：POST /v1/completions（model=OneRec-8B-full-tunning, n=3, top_p=0.95）
-           c) 把响应里的 recommendations_by_type 直接作为 OneRecResponse.recommendations_by_type
+    ──────────────────────────────────────────────────────────────────────────
+    请求体（与 docs/request.md 一字不差）：
+
+        POST /v1/completions HTTP/1.1
+        Authorization: Bearer {your_api_key}
+
+        {
+          "model": "OneRec-8B-full-tunning",
+          "prompt": "客户风险等级R3，金融资产总额335.20万元。已投资资产335.20万元，"
+                    "其中现金管理类109.00万元、固定收益类27.10万元、权益类14.70万元、"
+                    "保障类10.80万元、另类9.80万元、其他5.60万元。"
+                    "累计总收益19.40万元。该客户 年龄43，职业108.00，"
+                    "性别男，学历大专，投资经验1-3年。",
+          "max_tokens": 512,
+          "temperature": 0.9,
+          "top_p": 0.95,
+          "n": 3,
+          "frequency_penalty": 0.5,
+          "presence_penalty": 0.5
+        }
+    ──────────────────────────────────────────────────────────────────────────
+
+    接入步骤（只改本文件，schemas.py / main.py 保持不动）：
+        1. pip install onerec  （或公司私有源）
+        2. 在 _build_request_body() 里把 customer_sample 的字段拼成 prompt 字符串
+        3. 在 _RealRecommender.predict() 里：
+           a) 用 uid 拉客户特征（customer_sample.md + own_sample.md）
+           b) 调 _build_request_body() 拿请求体
+           c) requests.post(${ONEREC_BASE_URL}/v1/completions, json=body)
+           d) 把响应里的 recommendations_by_type 装进 OneRecResponse 返回
         4. 删除/缩减 mock_pool.py 即可
-
-    示例（伪代码）：
-        from onerec.api import OneRecClient as _Native
-
-        class _RealRecommender:
-            def __init__(self, model_path: str):
-                self._impl = _Native.load_from_config(model_path)
-
-            def predict(self, uid: str, top_k: int) -> OneRecResponse:
-                feature = self._fetch_user_feature(uid)            # 内部 RPC
-                prompt = self._render_request_prompt(feature)      # 按 docs/request.md
-                resp = self._impl.complete(
-                    model="OneRec-8B-full-tunning",
-                    prompt=prompt,
-                    n=top_k, top_p=0.95, temperature=0.9,
-                    frequency_penalty=0.5, presence_penalty=0.5,
-                )
-                return OneRecResponse(
-                    uid=uid,
-                    user_profile=feature.user_profile,
-                    hist_products=feature.hist_products,
-                    recommendations_by_type=resp.recommendations_by_type,
-                )
     """
 
     def __init__(self, model_path: str) -> None:
@@ -73,6 +73,26 @@ class _RealRecommender:
 
     def predict(self, uid: str, top_k: int) -> OneRecResponse:  # pragma: no cover
         raise NotImplementedError
+
+
+def build_request_body(user_profile: str, n: int = 3) -> dict:
+    """
+    构造 onerec /v1/completions 请求体（与 docs/request.md 完全一致）。
+    本函数纯字符串/字典操作，便于单测覆盖。
+
+    实参 user_profile 应是已经合成好的 prompt 字符串，例如：
+        "客户风险等级R3，金融资产总额335.20万元。已投资资产335.20万元，..."
+    """
+    return {
+        "model": "OneRec-8B-full-tunning",
+        "prompt": user_profile,
+        "max_tokens": 512,
+        "temperature": 0.9,
+        "top_p": 0.95,
+        "n": n,
+        "frequency_penalty": 0.5,
+        "presence_penalty": 0.5,
+    }
 
 
 _recommender: Optional[_RealRecommender] = None

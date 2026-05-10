@@ -11,11 +11,11 @@ interface Props {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  C1: 'default',
-  C2: 'cyan',
-  C3: 'blue',
-  C4: 'orange',
-  C5: 'red'
+  R1: 'default',
+  R2: 'cyan',
+  R3: 'blue',
+  R4: 'orange',
+  R5: 'red'
 };
 
 /**

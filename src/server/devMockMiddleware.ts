@@ -39,7 +39,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 function buildAllocations(profile: UserProfile): Allocation[] {
-  if (profile.riskLevel === 'C3') {
+  if (profile.riskLevel === 'R3') {
     return [
       { asset: 'bond', label: '中长期债券', weight: 55 },
       { asset: 'equity_a', label: 'A股核心宽基', weight: 18 },
@@ -48,7 +48,7 @@ function buildAllocations(profile: UserProfile): Allocation[] {
       { asset: 'qdii', label: '海外权益', weight: 5 }
     ];
   }
-  if (profile.riskLevel === 'C4') {
+  if (profile.riskLevel === 'R4') {
     return [
       { asset: 'equity_a', label: 'A股核心宽基', weight: 32 },
       { asset: 'bond', label: '中长期债券', weight: 30 },
@@ -117,7 +117,11 @@ function buildReportPayload(taskId: string, profile: UserProfile): ReportPayload
 ## 二、配置主张
 
 基于当前宏观环境（盈利底部修复 + 流动性宽松预期），结合客户风险偏好，建议以**${
-    profile.riskLevel === 'C3' ? '稳健保值' : profile.riskLevel === 'C4' ? '股债平衡' : '权益主导'
+    profile.riskLevel === 'R1' || profile.riskLevel === 'R2'
+      ? '稳健保值'
+      : profile.riskLevel === 'R3'
+      ? '股债平衡'
+      : '权益主导'
   }**为主轴，构建多元跨市场组合。
 
 ## 三、大类资产权重

@@ -8,11 +8,11 @@ import {
 import { useProfileStore } from '@/stores/useProfileStore';
 
 const RISK_COLORS: Record<string, string> = {
-  C1: 'default',
-  C2: 'cyan',
-  C3: 'blue',
-  C4: 'orange',
-  C5: 'red'
+  R1: 'default',
+  R2: 'cyan',
+  R3: 'blue',
+  R4: 'orange',
+  R5: 'red'
 };
 
 /**
@@ -120,10 +120,9 @@ export default function UserProfileCard() {
                 <div>
                   以上画像会随每条提问发送后端：
                   <br />
-                  <code>uid</code> → onerec 个性化召回
+                  <code>uid / user_profile / riskLevel / aum / age / 偏好</code>
                   <br />
-                  <code>user_profile / riskLevel / aum / age / 偏好</code>
-                  → 注入 LLM prompt
+                  注入 LLM prompt，让对话与客户风险偏好对齐。
                 </div>
               </div>
             </Tooltip>
