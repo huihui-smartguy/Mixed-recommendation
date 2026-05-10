@@ -17,13 +17,6 @@ import ProductSheet from './ProductSheet';
 import PhoneChrome from './PhoneChrome';
 import UserProfileCard from './UserProfileCard';
 
-const PROMPT_CHIPS = [
-  '稳健型客户下半年怎么配？',
-  '纳指QDII现在还能上车吗？',
-  '金价创新高，黄金怎么操作？',
-  '高股息+低波动有什么标的？'
-];
-
 export default function ChatWorkspace() {
   const {
     messages,
@@ -86,18 +79,7 @@ export default function ChatWorkspace() {
           message={`本地风控拦截：检测到敏感词「${bannedHits.join('、')}」，请调整后再发送`}
         />
       )}
-      <div className="prompt-chips">
-        {/* 仅 PC 模式展示固定提问；手机模式按真机交互习惯隐藏，避免遮挡输入区 */}
-        {viewMode === 'pc' &&
-          PROMPT_CHIPS.map((c) => (
-            <Tag.CheckableTag
-              key={c}
-              checked={false}
-              onChange={() => setInput(c)}
-            >
-              {c}
-            </Tag.CheckableTag>
-          ))}
+      <div className="prompt-chips prompt-chips-empty">
         <span style={{ flex: 1 }} />
         <Button
           size="small"

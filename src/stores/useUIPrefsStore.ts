@@ -10,7 +10,7 @@ import { create } from 'zustand';
  * 选择项与 localStorage 持久化挂钩，刷新后保持。
  */
 
-export type ThemeKey = 'warm' | 'green' | 'blue' | 'gray';
+export type ThemeKey = 'warm' | 'green' | 'blue' | 'gray' | 'gold';
 
 export interface ThemeTokens {
   /** Antd ConfigProvider 用的主色 */
@@ -53,6 +53,13 @@ export const THEMES: Record<ThemeKey, ThemeTokens> = {
     colorAccent: '#908a85',
     shadow: 'rgba(94, 91, 88, 0.16)',
     label: '浅灰'
+  },
+  gold: {
+    colorPrimary: '#c89e3f',
+    colorPrimaryDark: '#8e6f24',
+    colorAccent: '#d4a843',
+    shadow: 'rgba(142, 111, 36, 0.2)',
+    label: '金色'
   }
 };
 

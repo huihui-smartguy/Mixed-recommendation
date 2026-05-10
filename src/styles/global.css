@@ -81,6 +81,26 @@
   --shadow-floating: 0 12px 32px rgba(76, 121, 168, 0.18);
 }
 
+/* ---------- 金色主题（私行典藏） ---------- */
+:root[data-theme='gold'] {
+  --color-primary: #c89e3f;
+  --color-primary-dark: #8e6f24;
+  --color-primary-soft: #f3e5b8;
+  --color-accent: #d4a843;
+  --color-warm-soft: #fbf4dc;
+  --color-warm-cream: #fdf9ea;
+  --color-text: #2a2110;
+  --color-text-secondary: #6e5c33;
+  --color-text-muted: #a59477;
+  --color-border: #ead7a6;
+  --color-border-strong: #d3b870;
+  --bg-app: linear-gradient(180deg, #fdf9ea 0%, #fbf4dc 30%, #fdf9ea 100%);
+  --bg-panel: #fbf4dc;
+  --bg-header: linear-gradient(135deg, #8e6f24 0%, #c89e3f 50%, #d4a843 100%);
+  --shadow-card: 0 2px 10px rgba(142, 111, 36, 0.08);
+  --shadow-floating: 0 12px 32px rgba(142, 111, 36, 0.22);
+}
+
 /* ---------- 浅灰主题（极简） ---------- */
 :root[data-theme='gray'] {
   --color-primary: #7d7a78;
@@ -222,7 +242,7 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   position: relative;
   z-index: 2;
   flex: 1;
-  padding: 16px 24px 96px;
+  padding: 16px 24px 24px;
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
@@ -498,17 +518,33 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   overflow: hidden;
 }
 
-/* PC 三栏（用户卡 + 主干 + 思维链） */
+/* PC 三栏（用户卡 + 主干 + 思维链）
+ * 高度策略：
+ *   · 用 100dvh 而不是 100vh —— 移动浏览器地址栏伸缩时，dvh 会自动适配
+ *   · 偏移 200px 涵盖 header + tab nav + chat-mode-toolbar 全部上方装饰
+ *   · min-height: 360 确保即便 720p 笔记本也不会被截掉输入区
+ *   · 由于 .workspace pad-bottom 已经收紧到 24px，整个 chat tab 自带"自洽"
+ *     的视口尺寸——用户无需再向下滚动整页就能看到聊天框完整 */
 .chat-shell.pc-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 320px;
-  height: calc(100vh - 240px);
-  min-height: 560px;
+  height: calc(100dvh - 200px);
+  min-height: 360px;
+  max-height: calc(100dvh - 180px);
 }
 .chat-shell.pc-layout > .user-aside {
   border: none;
   border-right: 1px solid var(--color-border);
   border-radius: 0;
+  /* 在 grid 里跟随主行高度，不再用 .user-aside 的默认 832px */
+  height: 100%;
+  max-height: none;
+  width: auto;
+  flex: none;
+}
+.chat-shell.pc-layout > .cot-sidebar {
+  border-radius: 0;
+  height: 100%;
 }
 .chat-shell.pc-layout .chat-main {
   display: flex;
@@ -520,7 +556,7 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   min-height: 0;
   border-right: 1px solid var(--color-border);
 }
-.chat-shell.pc-layout > .cot-sidebar { border-radius: 0; }
+/* (cot-sidebar 在 PC 三栏中的样式已与 user-aside 一并配置在上面) */
 @media (max-width: 1100px) {
   .chat-shell.pc-layout { grid-template-columns: 220px minmax(0, 1fr) 280px; }
 }
@@ -1188,6 +1224,8 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   gap: 8px;
 }
 .prompt-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+/* 空版只剩"清空对话"按钮 —— 紧凑排布，不占多余高度 */
+.prompt-chips.prompt-chips-empty { min-height: 24px; align-items: center; }
 .compose { display: flex; gap: 8px; align-items: flex-end; }
 .compose textarea {
   flex: 1;

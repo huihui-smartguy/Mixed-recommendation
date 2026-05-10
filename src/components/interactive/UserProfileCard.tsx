@@ -16,14 +16,14 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 /**
- * 客户档案卡 —— 与 onerec 协议字段一一对齐：
- *   · uid           客户唯一 ID
- *   · name          客户真实姓名（前端展示用）
- *   · user_profile  onerec 输入端那段画像描述串（折叠展开）
+ * 客户档案卡 —— 展示当前选中客户的画像信息：
+ *   · uid          客户唯一 ID
+ *   · name         客户真实姓名
+ *   · user_profile 画像描述串（折叠展开）
  *
- * 选中后画像会随每条 chat 提问下发后端：
- *   · profile.uid → onerec sidecar 召回个性化候选池
- *   · profile.user_profile / riskLevel / aum / age / preferenceTags → 注入 LLM prompt
+ * 选中后画像会随每条 chat 提问下发后端，注入 LLM prompt 让对话与
+ * 客户风险偏好对齐。**交互式推荐链路不调 onerec**——onerec 仅在
+ * 生成式推荐中使用。
  */
 export default function UserProfileCard() {
   const { profiles, activeId, load, setActive } = useProfileStore();
@@ -72,7 +72,7 @@ export default function UserProfileCard() {
 
             <div className="user-stat">
               <label>UID</label>
-              <code title="onerec 协议 uid">{active.uid ?? active.id}</code>
+              <code title="客户唯一标识">{active.uid ?? active.id}</code>
             </div>
             <div className="user-stat">
               <label>在管资产</label>
@@ -103,7 +103,7 @@ export default function UserProfileCard() {
                   aria-expanded={profileExpanded}
                 >
                   <CaretRightOutlined rotate={profileExpanded ? 90 : 0} />
-                  <span>onerec user_profile</span>
+                  <span>客户画像描述</span>
                   <span className="muted" style={{ marginLeft: 'auto' }}>
                     {profileExpanded ? '收起' : '展开'}
                   </span>
