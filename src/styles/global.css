@@ -1,6 +1,6 @@
 /*
- * 暖色系设计令牌（陶土/沙米/暖砂）
- * 视觉：保留"暖"基调，但整体降饱和度，避免之前过于鲜艳的橙红观感
+ * 暖色系设计令牌（淡暖色 · 高对比度）
+ * 视觉：淡米/淡香槟的背景 + 深棕近黑的文字，保证 AA 级对比度
  * 注意：金融"红涨绿跌"颜色保持不动 — 它是语义色，不参与品牌色调整
  */
 
@@ -13,27 +13,27 @@
   --color-warm-soft: #faf3ea;
   --color-warm-cream: #fdf9f3;
 
-  /* 中性色 */
-  --color-text: #2a2017;
-  --color-text-secondary: #6b5b48;
-  --color-text-muted: #a39584;
-  --color-border: #ecdfd0;
-  --color-border-strong: #d9c2a4;
+  /* 中性色（强化对比度 —— 都通过 WCAG AA on 浅暖背景） */
+  --color-text: #1a1208;            /* 近黑深棕，大段正文 */
+  --color-text-secondary: #3f3220;  /* 次要文字（标签/字段名等） */
+  --color-text-muted: #7a6952;      /* 弱文字（提示/水印等），仍保持可读 */
+  --color-border: #e6d4bc;          /* 卡片边框 */
+  --color-border-strong: #c9b08a;   /* 强边框/分割线 */
 
   /* 涨跌（语义色，保留不动） */
   --color-up: #d93333;
   --color-down: #0aa66e;
-  --color-flat: #97836f;
+  --color-flat: #7a6952;
 
-  /* 背景 */
-  --bg-app: linear-gradient(180deg, #fdf9f3 0%, #faf3ea 30%, #fdf9f3 100%);
+  /* 背景 —— 更淡的暖米/暖香槟，让文字看起来更"亮"在白纸上 */
+  --bg-app: linear-gradient(180deg, #fffaf2 0%, #fcf5e9 30%, #fffaf2 100%);
   --bg-card: #ffffff;
-  --bg-panel: #fbf6ef;
+  --bg-panel: #fdf6ea;
   --bg-header: linear-gradient(135deg, #a85d3b 0%, #c97a4f 50%, #d99070 100%);
 
   /* 阴影 / 圆角 */
-  --shadow-card: 0 2px 10px rgba(168, 93, 59, 0.06);
-  --shadow-floating: 0 12px 32px rgba(168, 93, 59, 0.18);
+  --shadow-card: 0 2px 10px rgba(168, 93, 59, 0.08);
+  --shadow-floating: 0 12px 32px rgba(168, 93, 59, 0.2);
   --radius-card: 14px;
 
   /* 安全区 */
@@ -677,39 +677,51 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 16px;
-  padding: 18px 8px 32px;
+  gap: 12px;
+  padding: 12px 4px 20px;
   background: linear-gradient(180deg, #f4ece1 0%, #fbf6ef 100%);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
   flex-wrap: wrap;
   overscroll-behavior: contain;
 }
-/* 华为 Mate 60 / Pura 70 风格手机框 —— 等比缩放，适配浏览器视口 */
+/* 让两侧画像 / 思维链栏占据更多空间，最大限度收紧手机预览旁的空白 */
+.mobile-frame-wrap > .user-aside {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 220px;
+  max-width: 320px;
+}
+.mobile-frame-wrap > .mobile-cot-wrap {
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 360px;
+}
+
+/* 华为 Pura X 折叠屏风格 —— 展开后接近 10:16 比例，中央有横向铰链折痕。 */
 .mobile-bezel {
   flex: 0 0 auto;
-  /* 关键：用 aspect-ratio 锁住 384:832 比例。当 max-height 比 height 更
-   * 严苛时，bezel 会按高度缩短并自动按比例减小宽度；不会出现"被裁掉一截"
-   * 或拉伸变形。所以浏览器越窄/越矮，手机预览越小，但永远是真机比例。 */
-  width: min(384px, 38vw);
+  /* width:height ≈ 10:16，比传统直屏更"方"一些，与 Pura X 展开形态一致 */
+  width: min(480px, 40vw);
   height: auto;
-  aspect-ratio: 384 / 832;
+  aspect-ratio: 10 / 16;
   max-width: 100%;
-  max-height: calc(100vh - 180px);
-  background: linear-gradient(160deg, #1c1c1f 0%, #2a2a2c 50%, #1c1c1f 100%);
-  border-radius: 38px;
-  padding: 12px 9px 16px;
+  max-height: calc(100dvh - 180px);
+  background:
+    linear-gradient(160deg, #1c1c1f 0%, #2a2a2c 50%, #1c1c1f 100%);
+  border-radius: 32px;
+  padding: 10px 8px 14px;
   box-shadow:
     0 22px 42px rgba(20, 20, 22, 0.32),
     inset 0 0 0 2px rgba(255, 255, 255, 0.05),
     inset 0 0 0 4px rgba(0, 0, 0, 0.4);
   position: relative;
 }
-/* 单孔前置摄像头（替代 iPhone 灵动岛） */
+/* 单孔前置摄像头（位于上半屏顶部中央） */
 .mobile-bezel::before {
   content: '';
   position: absolute;
-  top: 18px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   width: 22px;
@@ -725,7 +737,7 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
 .mobile-bezel::after {
   content: '';
   position: absolute;
-  top: 21px;
+  top: 19px;
   left: calc(50% + 1px);
   width: 5px;
   height: 5px;
@@ -738,12 +750,32 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
   width: 100%;
   height: 100%;
   background: var(--bg-panel);
-  border-radius: 28px;
+  border-radius: 24px;
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   overscroll-behavior: contain;
+}
+/* 折叠屏铰链折痕 —— 屏幕中央一道极细的暗带 + 旁边淡光，模拟内屏折痕 */
+.phone-hinge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 8;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.025) 28%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.025) 72%,
+    transparent 100%
+  );
+  mix-blend-mode: multiply;
 }
 
 /* 手机状态栏：时间 / 中央摄像头 / 运营商 / 5G / 信号 / WiFi / 电量 */
@@ -1008,19 +1040,21 @@ body { font-feature-settings: 'tnum' on, 'lnum' on; }
 }
 
 @media (max-width: 1280px) {
-  .mobile-frame-wrap { gap: 12px; }
-  .user-aside { flex: 0 0 220px; width: 220px; }
-  .mobile-cot-wrap { flex: 0 0 280px; }
+  /* 中等宽度：进一步压紧 panel，让出更多空间给折叠屏 */
+  .mobile-frame-wrap { gap: 10px; padding: 12px 4px 20px; }
+  .mobile-frame-wrap > .user-aside { min-width: 200px; max-width: 280px; }
+  .mobile-frame-wrap > .mobile-cot-wrap { min-width: 220px; max-width: 320px; }
 }
 @media (max-width: 1100px) {
-  .mobile-frame-wrap { flex-direction: column; align-items: center; }
-  .user-aside,
-  .mobile-cot-wrap {
+  /* 窄屏：竖向堆叠，左右两栏变成横铺的卡片 */
+  .mobile-frame-wrap { flex-direction: column; align-items: center; gap: 14px; }
+  .mobile-frame-wrap > .user-aside,
+  .mobile-frame-wrap > .mobile-cot-wrap {
     flex: 0 0 auto;
-    width: 396px;
-    max-width: 100%;
+    width: 100%;
+    max-width: 480px;
     height: auto;
-    max-height: 320px;
+    max-height: 300px;
   }
 }
 
