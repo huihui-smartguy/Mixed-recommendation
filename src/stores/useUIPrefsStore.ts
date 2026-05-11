@@ -10,7 +10,7 @@ import { create } from 'zustand';
  * 选择项与 localStorage 持久化挂钩，刷新后保持。
  */
 
-export type ThemeKey = 'warm' | 'green' | 'blue' | 'gray' | 'gold';
+export type ThemeKey = 'warm' | 'cream' | 'green' | 'blue' | 'gray' | 'gold';
 
 export interface ThemeTokens {
   /** Antd ConfigProvider 用的主色 */
@@ -32,6 +32,14 @@ export const THEMES: Record<ThemeKey, ThemeTokens> = {
     colorAccent: '#b8584a',
     shadow: 'rgba(168, 93, 59, 0.18)',
     label: '陶土暖橙'
+  },
+  cream: {
+    // 淡暖米色 —— 比 warm 更"淡"、更柔和，文字采用近黑色保证强对比
+    colorPrimary: '#d4a574',
+    colorPrimaryDark: '#a8784e',
+    colorAccent: '#c08652',
+    shadow: 'rgba(168, 120, 78, 0.18)',
+    label: '淡暖（高对比）'
   },
   green: {
     colorPrimary: '#6ba87f',
