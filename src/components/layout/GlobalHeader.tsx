@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import { THEMES, useUIPrefsStore, type ThemeKey } from '@/stores/useUIPrefsStore';
 
-const THEME_KEYS: ThemeKey[] = ['warm', 'green', 'blue', 'gray'];
+const THEME_KEYS: ThemeKey[] = ['warm', 'cream', 'green', 'blue', 'gray', 'gold'];
 
 export default function GlobalHeader() {
   const { theme, setTheme, robotVisible, setRobotVisible } = useUIPrefsStore();
