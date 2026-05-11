@@ -201,6 +201,8 @@ export default function ChatWorkspace() {
                 {stream}
                 {composer}
               </div>
+              {/* 折叠屏铰链折痕（Pura X 内屏视觉），覆盖在内容之上 */}
+              <div className="phone-hinge" aria-hidden />
             </div>
           </div>
           <div className="mobile-cot-wrap">
